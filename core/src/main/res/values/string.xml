@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Search Bar -->
+    <string name="search_placeholder">코인명 / 심볼 검색</string>
+    <string name="search_clear_description">Clear search text</string>
+    <string name="search_icon_description">Search</string>
+
+</resources>

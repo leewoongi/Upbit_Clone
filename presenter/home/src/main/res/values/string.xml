@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- LabelValue -->
+    <string name="label_total_purchase">총 매수</string>
+    <string name="label_profit_loss">평가손익</string>
+    <string name="label_total_evaluation">총 평가</string>
+    <string name="label_return_rate">수익률</string>
+</resources>

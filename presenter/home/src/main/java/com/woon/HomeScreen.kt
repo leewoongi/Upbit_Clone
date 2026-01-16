@@ -1,0 +1,151 @@
+package com.woon
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.woon.core.ui.design.theme.color.colorBackground
+import com.woon.core.ui.design.theme.color.colorError
+import com.woon.core.ui.design.theme.color.colorOutline
+import com.woon.core.ui.design.theme.color.colorPrimary
+import com.woon.model.constant.ChartChipType
+import com.woon.model.constant.MarketType
+import com.woon.model.constant.SortOrder
+import com.woon.model.constant.SortType
+import com.woon.ui.CoinList
+import com.woon.ui.MarketTabRow
+import com.woon.ui.PortfolioSummary
+import com.woon.ui.SearchBar
+import com.woon.ui.SortHeader
+import com.woon.ui.TopBar
+import com.woon.model.uistate.HomeUiState
+import com.woon.viewmodel.HomeIntent
+import com.woon.viewmodel.HomeViewModel
+
+@Composable
+fun HomeScreen() {
+    val viewModel = hiltViewModel<HomeViewModel>()
+
+    var selectedType by rememberSaveable { mutableStateOf(ChartChipType.EXCHANGE) }
+    var query by rememberSaveable { mutableStateOf("") }
+    var selectedMarket by rememberSaveable { mutableStateOf(MarketType.FAVORITE) }
+
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    val sortType = (uiState as? HomeUiState.Success)?.sortType ?: SortType.VOLUME
+    val sortOrder = (uiState as? HomeUiState.Success)?.sortOrder ?: SortOrder.DESC
+
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(colorBackground)
+            .statusBarsPadding()
+    ) {
+        TopBar(
+            modifier = Modifier.fillMaxWidth(),
+            selectedType = selectedType,
+            onTabSelected = { type -> selectedType = type }
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        SearchBar(
+            modifier = Modifier.fillMaxWidth(),
+            query = query,
+            onQueryChange = { query = it },
+            onSearch = { }
+        )
+
+        HorizontalDivider(
+            color = colorPrimary,
+            thickness = 2.dp
+        )
+
+        PortfolioSummary(
+            modifier = Modifier.fillMaxWidth(),
+            totalPurchase = "59,042,845",
+            totalValue = "38,431,373",
+            profitLoss = "-20,611,470",
+            profitLossColor = colorError,
+            profitRate = "-34.91%",
+            profitRateColor = colorError
+        )
+
+        MarketTabRow(
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            selectedMarket = selectedMarket,
+            onMarketSelected = { selectedMarket = it }
+        )
+
+        HorizontalDivider(
+            color = colorOutline,
+            thickness = 2.dp
+        )
+
+        SortHeader(
+            currentSortType = sortType,
+            currentSortOrder = sortOrder,
+            onSortName = { viewModel.onIntent(HomeIntent.ChangeSortName) },
+            onSortPrice = { viewModel.onIntent(HomeIntent.ChangeSortPrice) },
+            onSortChange = { viewModel.onIntent(HomeIntent.ChangeSortChange) },
+            onSortVolume = { viewModel.onIntent(HomeIntent.ChangeSortVolume) }
+        )
+
+        when (uiState) {
+            is HomeUiState.Loading -> {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = colorPrimary)
+                }
+            }
+
+            is HomeUiState.Success -> {
+                CoinList(
+                    modifier = Modifier.weight(1f),
+                    coins = (uiState as HomeUiState.Success).coins,
+                    onCoinClick = { coin ->
+                        // TODO: 코인 상세 화면 이동
+                    }
+                )
+            }
+
+            is HomeUiState.Error -> {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = (uiState as HomeUiState.Error).message,
+                        color = colorError
+                    )
+                }
+            }
+        }
+    }
+}
