@@ -8,4 +8,5 @@ android{
 
 dependencies {
     implementation(project(":presenter:home"))
+    implementation(project(":presenter:detail"))
 }

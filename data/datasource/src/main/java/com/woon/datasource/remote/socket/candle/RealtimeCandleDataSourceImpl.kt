@@ -1,40 +1,36 @@
-package com.woon.datasource.remote.socket.ticker
+package com.woon.datasource.remote.socket.candle
 
 import android.util.Log
 import com.google.gson.Gson
-import com.woon.datasource.remote.socket.ticker.response.TickerResponse
-import com.woon.domain.ticker.entity.Ticker
+import com.woon.datasource.remote.socket.candle.response.WebSocketCandleResponse
 import com.woon.network.websocket.WebSocketClient
 import com.woon.network.websocket.request.WebSocketRequest
 import com.woon.network.websocket.response.WebSocketResponse
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onStart
 import javax.inject.Inject
 
-class TickerDataSourceImpl
-@Inject constructor(
+class RealtimeCandleDataSourceImpl @Inject constructor(
     private val webSocketClient: WebSocketClient,
     private val gson: Gson
-) : TickerDataSource {
+) : RealtimeCandleDataSource {
 
-    override fun getTicker(
-        marketList: List<String>
-    ): Flow<Ticker> {
+    override fun observeCandles(
+        marketCode: String,
+        candleType: String
+    ): Flow<WebSocketCandleResponse> {
         val request = WebSocketRequest.Builder()
-            .url(TICKER_URL)
-            .codes(marketList)
+            .url(CANDLE_URL)
+            .codes(listOf(marketCode))
+            .type(candleType)
             .build()
-
 
         return webSocketClient.observe(request).map { response ->
             when (response) {
                 is WebSocketResponse.Success -> {
                     val json = response.toUtf8()
-                    Log.d(TAG, "Ticker JSON: $json")
-                    val ticker = gson.fromJson(json, TickerResponse::class.java).toDomain()
-                    Log.d(TAG, "Ticker: code=${ticker.code}, price=${ticker.tradePrice}, change=${ticker.change}")
-                    ticker
+                    Log.d(TAG, "Candle JSON: $json")
+                    gson.fromJson(json, WebSocketCandleResponse::class.java)
                 }
                 is WebSocketResponse.Failure -> {
                     throw response.throwable
@@ -44,7 +40,7 @@ class TickerDataSourceImpl
     }
 
     companion object {
-        private const val TAG = "TickerDataSource"
-        private const val TICKER_URL = "wss://api.upbit.com/websocket/v1"
+        private const val TAG = "RealtimeCandleDataSource"
+        private const val CANDLE_URL = "wss://api.upbit.com/websocket/v1"
     }
 }

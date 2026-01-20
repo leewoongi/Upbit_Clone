@@ -7,6 +7,6 @@ internal fun Candle.toUiModel() : CandleUiModel{
         high = high.toDouble(),
         low = low.toDouble(),
         open = open.toDouble(),
-        trade = trade.toDouble()
+        trade = close.toDouble()
     )
 }

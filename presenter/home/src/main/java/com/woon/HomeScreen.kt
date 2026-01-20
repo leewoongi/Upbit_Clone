@@ -13,6 +13,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -28,31 +29,27 @@ import com.woon.core.ui.design.theme.color.colorOutline
 import com.woon.core.ui.design.theme.color.colorPrimary
 import com.woon.model.constant.ChartChipType
 import com.woon.model.constant.MarketType
-import com.woon.model.constant.SortOrder
-import com.woon.model.constant.SortType
+import com.woon.model.uistate.HomeDataState
 import com.woon.ui.CoinList
 import com.woon.ui.MarketTabRow
 import com.woon.ui.PortfolioSummary
 import com.woon.ui.SearchBar
 import com.woon.ui.SortHeader
 import com.woon.ui.TopBar
-import com.woon.model.uistate.HomeUiState
+import com.woon.core.ui.provides.LocalNavController
 import com.woon.viewmodel.HomeIntent
 import com.woon.viewmodel.HomeViewModel
 
 @Composable
 fun HomeScreen() {
     val viewModel = hiltViewModel<HomeViewModel>()
+    val navController = LocalNavController.current
 
     var selectedType by rememberSaveable { mutableStateOf(ChartChipType.EXCHANGE) }
     var query by rememberSaveable { mutableStateOf("") }
     var selectedMarket by rememberSaveable { mutableStateOf(MarketType.FAVORITE) }
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-
-    val sortType = (uiState as? HomeUiState.Success)?.sortType ?: SortType.VOLUME
-    val sortOrder = (uiState as? HomeUiState.Success)?.sortOrder ?: SortOrder.DESC
-
 
     Column(
         modifier = Modifier
@@ -103,16 +100,12 @@ fun HomeScreen() {
         )
 
         SortHeader(
-            currentSortType = sortType,
-            currentSortOrder = sortOrder,
-            onSortName = { viewModel.onIntent(HomeIntent.ChangeSortName) },
-            onSortPrice = { viewModel.onIntent(HomeIntent.ChangeSortPrice) },
-            onSortChange = { viewModel.onIntent(HomeIntent.ChangeSortChange) },
-            onSortVolume = { viewModel.onIntent(HomeIntent.ChangeSortVolume) }
+            sortState = uiState.sort,
+            onSortClick = { type -> viewModel.onIntent(HomeIntent.Sort(type)) }
         )
 
-        when (uiState) {
-            is HomeUiState.Loading -> {
+        when (val dataState = uiState.dataState) {
+            is HomeDataState.Loading -> {
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -123,17 +116,17 @@ fun HomeScreen() {
                 }
             }
 
-            is HomeUiState.Success -> {
+            is HomeDataState.Success -> {
                 CoinList(
                     modifier = Modifier.weight(1f),
-                    coins = (uiState as HomeUiState.Success).coins,
+                    coins = dataState.coins,
                     onCoinClick = { coin ->
-                        // TODO: 코인 상세 화면 이동
+                        navController.navigate("detail/${coin.id}")
                     }
                 )
             }
 
-            is HomeUiState.Error -> {
+            is HomeDataState.Error -> {
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -141,7 +134,7 @@ fun HomeScreen() {
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = (uiState as HomeUiState.Error).message,
+                        text = dataState.message,
                         color = colorError
                     )
                 }

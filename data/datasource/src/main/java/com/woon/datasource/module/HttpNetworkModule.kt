@@ -9,10 +9,8 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
 @Module
@@ -38,13 +36,13 @@ object HttpNetworkModule {
 
     @Provides
     @Singleton
-    fun provideCandleApi(retrofit: Retrofit): CandleApi {
-        return retrofit.create(CandleApi::class.java)
+    fun provideMarketApi(retrofit: Retrofit): MarketApi {
+        return retrofit.create(MarketApi::class.java)
     }
 
     @Provides
     @Singleton
-    fun provideMarketApi(retrofit: Retrofit): MarketApi {
-        return retrofit.create(MarketApi::class.java)
+    fun provideCandleApi(retrofit: Retrofit): CandleApi {
+        return retrofit.create(CandleApi::class.java)
     }
 }

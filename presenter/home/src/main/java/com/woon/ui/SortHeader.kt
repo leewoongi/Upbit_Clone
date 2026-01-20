@@ -14,17 +14,14 @@ import androidx.compose.ui.unit.dp
 import com.woon.core.ui.design.theme.color.colorSurfaceVariant
 import com.woon.model.constant.SortOrder
 import com.woon.model.constant.SortType
+import com.woon.model.uimodel.SortUiState
 import com.woon.ui.component.SortHeaderItem
 
 @Composable
 fun SortHeader(
     modifier: Modifier = Modifier,
-    currentSortType: SortType,
-    currentSortOrder: SortOrder,
-    onSortName: () -> Unit,
-    onSortPrice: () -> Unit,
-    onSortChange: () -> Unit,
-    onSortVolume: () -> Unit
+    sortState: SortUiState,
+    onSortClick: (SortType) -> Unit
 ) {
     Row(
         modifier = modifier
@@ -42,39 +39,36 @@ fun SortHeader(
 
             SortHeaderItem(
                 text = SortType.NAME.label,
-                isSelected = currentSortType == SortType.NAME,
-                sortOrder = if (currentSortType == SortType.NAME) currentSortOrder else null,
-                onClick = onSortName
+                isSelected = sortState.isSelected(SortType.NAME),
+                sortOrder = sortState.orderFor(SortType.NAME),
+                onClick = { onSortClick(SortType.NAME) }
             )
         }
 
-        // 현재가
         SortHeaderItem(
             modifier = Modifier.weight(1f),
             text = SortType.PRICE.label,
-            isSelected = currentSortType == SortType.PRICE,
-            sortOrder = if (currentSortType == SortType.PRICE) currentSortOrder else null,
-            onClick = onSortPrice,
+            isSelected = sortState.isSelected(SortType.PRICE),
+            sortOrder = sortState.orderFor(SortType.PRICE),
+            onClick = { onSortClick(SortType.PRICE) },
             alignment = Alignment.CenterEnd
         )
 
-        // 전일대비
         SortHeaderItem(
             modifier = Modifier.weight(0.8f),
             text = SortType.CHANGE.label,
-            isSelected = currentSortType == SortType.CHANGE,
-            sortOrder = if (currentSortType == SortType.CHANGE) currentSortOrder else null,
-            onClick = onSortChange,
+            isSelected = sortState.isSelected(SortType.CHANGE),
+            sortOrder = sortState.orderFor(SortType.CHANGE),
+            onClick = { onSortClick(SortType.CHANGE) },
             alignment = Alignment.CenterEnd
         )
 
-        // 거래대금
         SortHeaderItem(
             modifier = Modifier.weight(1f),
             text = SortType.VOLUME.label,
-            isSelected = currentSortType == SortType.VOLUME,
-            sortOrder = if (currentSortType == SortType.VOLUME) currentSortOrder else null,
-            onClick = onSortVolume,
+            isSelected = sortState.isSelected(SortType.VOLUME),
+            sortOrder = sortState.orderFor(SortType.VOLUME),
+            onClick = { onSortClick(SortType.VOLUME) },
             alignment = Alignment.CenterEnd
         )
     }

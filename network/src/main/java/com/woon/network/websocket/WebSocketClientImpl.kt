@@ -2,9 +2,9 @@ package com.woon.network.websocket
 
 import com.woon.network.websocket.request.WebSocketRequest
 import com.woon.network.websocket.response.WebSocketResponse
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.callbackFlow
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -13,60 +13,55 @@ import okhttp3.WebSocketListener
 import okio.ByteString
 import javax.inject.Inject
 
-class WebSocketClientImpl
-@Inject constructor(
+class WebSocketClientImpl @Inject constructor(
     private val okHttpClient: OkHttpClient
-) : WebSocketClient, WebSocketListener() {
-    private var webSocket: WebSocket? = null
-    private var websocketRequest: WebSocketRequest? = null
-    private val _response: MutableSharedFlow<WebSocketResponse> = MutableSharedFlow(extraBufferCapacity = 64)
-    val response = _response.asSharedFlow()
+) : WebSocketClient,WebSocketListener()  {
 
-
-    override fun connect(request: WebSocketRequest) {
-        websocketRequest = request
-        val httpRequest = Request
-            .Builder()
+    override fun observe(
+        request: WebSocketRequest
+    ): Flow<WebSocketResponse> = callbackFlow {
+        val httpRequest = Request.Builder()
             .url(request.url)
             .build()
 
-        webSocket = okHttpClient.newWebSocket(httpRequest, this)
-    }
+        val listener = object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                // 구독 메시지 전송
+                webSocket.send(request.toSubscribeMessage())
+            }
 
-    override fun disconnect() {
-        this.webSocket?.close(1000, "Client disconnect")  // 서버에 종료 알림!
-        this.webSocket = null
-        this.websocketRequest = null
-    }
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                trySend(WebSocketResponse.Success(text))
+            }
 
-    override fun receive(): Flow<WebSocketResponse> {
-        return response
-    }
+            override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
+                trySend(WebSocketResponse.Success(bytes))
+            }
 
-    override fun onOpen(webSocket: WebSocket, response: Response) {
-        if (websocketRequest == null) return
-        webSocket.send(websocketRequest!!.toSubscribeMessage())
-    }
+            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                // 서버가 닫으려는 중 → 클라이언트도 닫기
+                webSocket.close(code, reason)
+            }
 
-    override fun onMessage(webSocket: WebSocket, text: String) {
-        _response.tryEmit(WebSocketResponse.Success(text))
-    }
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                // 소켓이 닫히면 flow도 종료
+                close()
+            }
 
-    override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
-        _response.tryEmit(WebSocketResponse.Success(bytes))
-    }
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                // 에러 이벤트 전달 후 flow 종료
+                trySend(WebSocketResponse.Failure(t))
+                close(t)
+            }
+        }
 
-    override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-        webSocket.close(code, reason)
-    }
+        // ✅ collect 시작 시점에 소켓 연결
+        val webSocket = okHttpClient.newWebSocket(httpRequest, listener)
 
-    override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-        this.webSocket = null
-        this.websocketRequest = null
-    }
-
-    override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-        this.webSocket = null
-        _response.tryEmit(WebSocketResponse.Failure(t))
+        // ✅ collect 취소/종료 시점에 소켓 종료
+        awaitClose {
+            // 이미 닫힌 경우도 안전
+            webSocket.close(1000, "Collector cancelled")
+        }
     }
 }

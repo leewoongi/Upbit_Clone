@@ -35,7 +35,7 @@ fun SuccessScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(ScreenRatios.HEADER_RATIO),
-            market = uiState.market.code,
+            market = uiState.marketCode,
             price = 20000.toDouble()
         )
     }

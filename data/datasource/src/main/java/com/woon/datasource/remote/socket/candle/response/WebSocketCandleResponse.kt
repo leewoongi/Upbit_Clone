@@ -1,4 +1,4 @@
-package com.woon.datasource.remote.http.candle.response
+package com.woon.datasource.remote.socket.candle.response
 
 import com.google.gson.annotations.SerializedName
 import com.woon.domain.candle.entity.Candle
@@ -6,8 +6,9 @@ import com.woon.domain.candle.entity.constant.CandleType
 import com.woon.domain.money.entity.Money
 import java.util.Date
 
-data class CandleResponse(
-    @SerializedName("market") val market: String,
+data class WebSocketCandleResponse(
+    @SerializedName("type") val type: String,
+    @SerializedName("code") val code: String,
     @SerializedName("candle_date_time_utc") val candleDateTimeUtc: String,
     @SerializedName("candle_date_time_kst") val candleDateTimeKst: String,
     @SerializedName("opening_price") val openingPrice: Double,
@@ -17,28 +18,12 @@ data class CandleResponse(
     @SerializedName("timestamp") val timestamp: Long,
     @SerializedName("candle_acc_trade_price") val candleAccTradePrice: Double,
     @SerializedName("candle_acc_trade_volume") val candleAccTradeVolume: Double,
-    @SerializedName("unit") val unit: Int? = null
-) {
-    fun toDomain(type: CandleType): Candle {
+    @SerializedName("stream_type") val streamType: String
+){
+    fun toDomain() : Candle {
         return Candle(
-            market = market,
-            type = type,
-            dateTime = candleDateTimeUtc,
-            open = Money(openingPrice),
-            high = Money(highPrice),
-            low = Money(lowPrice),
-            close = Money(tradePrice),
-            timestamp = Date(timestamp),
-            accTradePrice = Money(candleAccTradePrice),
-            accTradeVolume = candleAccTradeVolume
-        )
-    }
-
-    // 분봉용 (unit 사용)
-    fun toDomain(): Candle {
-        return Candle(
-            market = market,
-            type = unit?.let { CandleType.fromRestUnit(it) } ?: CandleType.MINUTE_1,
+            market = code,
+            type = CandleType.fromWsType(type),
             dateTime = candleDateTimeUtc,
             open = Money(openingPrice),
             high = Money(highPrice),
