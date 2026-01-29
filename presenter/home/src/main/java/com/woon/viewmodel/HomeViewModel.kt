@@ -2,6 +2,7 @@ package com.woon.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.woon.domain.breadcrumb.recorder.BreadcrumbRecorder
 import com.woon.domain.event.reporter.ErrorReporter
 import com.woon.domain.market.exception.MarketException
 import com.woon.domain.market.usecase.GetMarketsUseCase
@@ -31,8 +32,13 @@ import javax.inject.Inject
 class HomeViewModel @Inject constructor(
     private val getMarketsUseCase: GetMarketsUseCase,
     private val getTickersUseCase: GetTickersUseCase,
-    private val errorReporter: ErrorReporter
+    private val errorReporter: ErrorReporter,
+    private val breadcrumbRecorder: BreadcrumbRecorder
 ) : ViewModel() {
+
+    init {
+        breadcrumbRecorder.recordScreen(SCREEN_NAME)
+    }
 
     private val _sortFlow = MutableStateFlow(SortUiState())
 
@@ -61,7 +67,7 @@ class HomeViewModel @Inject constructor(
             sort = sort
         )
     }.catch { e ->
-        errorReporter.report(e, SCREEN_NAME)
+        errorReporter.report(e, SCREEN_NAME, feature = FEATURE_TICKER_STREAM)
         emit(
             HomeScreenUiState(
                 dataState = HomeDataState.Error(getErrorMessage(e))
@@ -76,12 +82,27 @@ class HomeViewModel @Inject constructor(
     fun onIntent(intent: HomeIntent) {
         when (intent) {
             is HomeIntent.Sort -> { onSortClick(intent.type) }
-            is HomeIntent.NotificationClick -> { /* TODO */ }
+            is HomeIntent.NotificationClick -> triggerTestError()
+            is HomeIntent.TriggerTestError -> triggerTestError()
         }
+    }
+
+    private fun triggerTestError() {
+        breadcrumbRecorder.recordClick("TestErrorButton")
+        val testException = IllegalStateException("Test error for breadcrumb verification")
+        errorReporter.report(testException, SCREEN_NAME, feature = FEATURE_TEST_ERROR)
     }
 
     fun onSortClick(type: SortType) {
         _sortFlow.update { it.toggle(type) }
+    }
+
+    fun recordClick(name: String, attrs: Map<String, String> = emptyMap()) {
+        breadcrumbRecorder.recordClick(name, attrs)
+    }
+
+    fun recordNav(route: String) {
+        breadcrumbRecorder.recordNav(route)
     }
 
     private fun getErrorMessage(e: Throwable): String {
@@ -94,5 +115,7 @@ class HomeViewModel @Inject constructor(
 
     companion object {
         private const val SCREEN_NAME = "HomeScreen"
+        private const val FEATURE_TICKER_STREAM = "TickerStream"
+        private const val FEATURE_TEST_ERROR = "TestError"
     }
 }

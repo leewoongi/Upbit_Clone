@@ -1,9 +1,14 @@
 package com.woon.domain.event.reporter
 
+import com.woon.domain.breadcrumb.model.Breadcrumb
+import com.woon.domain.breadcrumb.recorder.BreadcrumbRecorder
 import com.woon.domain.candle.exception.CandleException
 import com.woon.domain.event.entity.ErrorEvent
+import com.woon.domain.event.provider.AppInfoProvider
+import com.woon.domain.event.provider.DeviceInfoProvider
 import com.woon.domain.event.usecase.SendErrorEventUseCase
 import com.woon.domain.market.exception.MarketException
+import com.woon.domain.session.SessionIdProvider
 import com.woon.domain.ticker.exception.TickerException
 import com.woon.domain.trade.exception.TradeException
 import kotlinx.coroutines.CancellationException
@@ -19,63 +24,106 @@ import javax.inject.Singleton
 
 @Singleton
 class ErrorReporter @Inject constructor(
-    private val sendErrorEventUseCase: SendErrorEventUseCase
+    private val sendErrorEventUseCase: SendErrorEventUseCase,
+    private val sessionIdProvider: SessionIdProvider,
+    private val breadcrumbRecorder: BreadcrumbRecorder,
+    private val appInfoProvider: AppInfoProvider,
+    private val deviceInfoProvider: DeviceInfoProvider
 ) {
-    /**
-     * 자체 CoroutineScope
-     * - 전역 크래시 핸들러에서도 사용 가능
-     * - SupervisorJob: 하나의 에러 전송 실패가 다른 전송에 영향 X
-     * - CoroutineExceptionHandler: 에러 전송 중 예외 발생 시 무시
-     */
     private val scope = CoroutineScope(
         SupervisorJob() + Dispatchers.IO + CoroutineExceptionHandler { _, _ -> }
     )
 
+    // 이전 세션 스냅샷 (첫 에러에만 사용)
+    private var previousSessionBreadcrumbs: List<Breadcrumb>? = null
+
+    init {
+        previousSessionBreadcrumbs = breadcrumbRecorder.consumePreviousSnapshot()
+    }
+
     /**
-     * 에러를 리포트합니다.
-     * CancellationException을 제외한 모든 에러를 서버로 전송합니다.
-     *
-     * @param throwable 발생한 에러
-     * @param screen 에러가 발생한 화면 이름
+     * 에러 리포트 (기존 호환)
      */
     fun report(throwable: Throwable, screen: String) {
-        if (!shouldReport(throwable)) return
+        report(throwable, screen, feature = "", flow = "")
+    }
+
+    /**
+     * 에러 리포트 (feature/flow 포함)
+     */
+    fun report(
+        throwable: Throwable,
+        screen: String,
+        feature: String,
+        flow: String = ""
+    ) {
+        val threadName = Thread.currentThread().name
+        val isMainThread = threadName == "main" || threadName.startsWith("main")
+
+        println("[ErrorReporter] report() called: ${throwable.javaClass.simpleName} on $screen (feature=$feature)")
+
+        if (!shouldReport(throwable)) {
+            println("[ErrorReporter] report() skipped: CancellationException")
+            return
+        }
+
+        val currentBreadcrumbs = breadcrumbRecorder.getRecent(30)
+        println("[ErrorReporter] Breadcrumbs count: ${currentBreadcrumbs.size}")
+
+        // 이전 세션 breadcrumb이 있으면 앞에 붙임 (첫 에러에만)
+        val allBreadcrumbs = if (previousSessionBreadcrumbs != null) {
+            val combined = previousSessionBreadcrumbs!! + currentBreadcrumbs
+            previousSessionBreadcrumbs = null  // 1회만 사용
+            combined.takeLast(30)
+        } else {
+            currentBreadcrumbs
+        }
+
+        val errorType = getErrorType(throwable)
+        val message = throwable.message ?: throwable.javaClass.simpleName
+        val stack = getStackTraceString(throwable)
 
         val event = ErrorEvent(
-            type = getErrorType(throwable),
-            message = throwable.message ?: throwable.javaClass.simpleName,
-            stack = getStackTraceString(throwable),
-            screen = screen
+            type = errorType,
+            message = message,
+            stack = stack,
+            screen = screen,
+            sessionId = sessionIdProvider.get(),
+            breadcrumbs = allBreadcrumbs,
+            appVersion = appInfoProvider.appVersion,
+            buildType = appInfoProvider.buildType,
+            deviceModel = deviceInfoProvider.deviceModel,
+            osSdkInt = deviceInfoProvider.osSdkInt,
+            thread = if (isMainThread) "main" else threadName,
+            feature = feature,
+            flow = flow,
+            fingerprintHint = calculateFingerprintHint(errorType, stack, message)
         )
+
+        println("[ErrorReporter] Sending error event: type=${event.type}, feature=${event.feature}, breadcrumbs=${event.breadcrumbs.size}")
 
         scope.launch {
             runCatching {
                 sendErrorEventUseCase(event)
+            }.onSuccess {
+                println("[ErrorReporter] Error event sent successfully")
+            }.onFailure { e ->
+                println("[ErrorReporter] Failed to send error event: ${e.message}")
+                e.printStackTrace()
             }
         }
     }
 
-    /**
-     * 리포트 여부를 판단합니다.
-     * - CancellationException: 코루틴 취소는 정상 동작이므로 제외
-     * - 나머지 모든 에러: 서버로 전송
-     */
     private fun shouldReport(throwable: Throwable): Boolean {
-        // 코루틴 취소는 정상 동작이므로 리포트하지 않음
         return throwable !is CancellationException
     }
 
-    /**
-     * 에러 타입을 반환합니다.
-     */
     private fun getErrorType(throwable: Throwable): String {
         return when (throwable) {
-            // 도메인 예외
             is CandleException -> getCandleErrorType(throwable)
             is MarketException -> getMarketErrorType(throwable)
             is TickerException -> getTickerErrorType(throwable)
             is TradeException -> getTradeErrorType(throwable)
-            // 시스템/런타임 에러
             is NullPointerException -> "NULL_POINTER"
             is IllegalStateException -> "ILLEGAL_STATE"
             is IndexOutOfBoundsException -> "INDEX_OUT_OF_BOUNDS"
@@ -151,14 +199,62 @@ class ErrorReporter @Inject constructor(
         }
     }
 
-    /**
-     * Stack trace를 문자열로 변환합니다.
-     */
     private fun getStackTraceString(throwable: Throwable): String {
         val sw = StringWriter()
         val pw = PrintWriter(sw)
         throwable.printStackTrace(pw)
         pw.flush()
         return sw.toString()
+    }
+
+    /**
+     * fingerprintHint 계산
+     * 규칙: "{type}|{topStackFrame}|{normalizedMessage(80)}"
+     */
+    private fun calculateFingerprintHint(type: String, stack: String, message: String): String {
+        val topFrame = extractTopStackFrame(stack)
+        val normalizedMessage = normalizeMessage(message)
+        return "$type|$topFrame|$normalizedMessage"
+    }
+
+    /**
+     * 스택에서 첫 번째 meaningful frame 추출
+     * com.woon 패키지 프레임 우선, 없으면 첫 프레임
+     */
+    private fun extractTopStackFrame(stack: String): String {
+        val lines = stack.lines()
+        val frameLines = lines.filter { it.trimStart().startsWith("at ") }
+
+        // com.woon 패키지의 첫 프레임 찾기
+        val appFrame = frameLines.firstOrNull { it.contains(APP_PACKAGE_PREFIX) }
+        if (appFrame != null) {
+            return parseFrameLine(appFrame)
+        }
+
+        // 없으면 첫 번째 프레임
+        return frameLines.firstOrNull()?.let { parseFrameLine(it) } ?: "unknown"
+    }
+
+    /**
+     * "at com.woon.MyClass.method(MyClass.kt:42)" -> "com.woon.MyClass.method"
+     */
+    private fun parseFrameLine(line: String): String {
+        val trimmed = line.trim().removePrefix("at ")
+        val parenIndex = trimmed.indexOf('(')
+        return if (parenIndex > 0) trimmed.substring(0, parenIndex) else trimmed
+    }
+
+    /**
+     * 메시지 정규화: 80자로 자르고 숫자 연속을 #으로 치환
+     */
+    private fun normalizeMessage(message: String): String {
+        return message
+            .take(MAX_MESSAGE_LENGTH)
+            .replace(Regex("\\d+"), "#")
+    }
+
+    companion object {
+        private const val APP_PACKAGE_PREFIX = "com.woon"
+        private const val MAX_MESSAGE_LENGTH = 80
     }
 }

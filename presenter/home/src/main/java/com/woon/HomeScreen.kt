@@ -122,6 +122,8 @@ fun HomeScreen() {
                     modifier = Modifier.weight(1f),
                     coins = dataState.coins,
                     onCoinClick = { coin ->
+                        viewModel.recordClick("CoinItem", mapOf("symbol" to coin.symbol))
+                        viewModel.recordNav("detail/${coin.id}")
                         navController.navigate("detail/${coin.id}")
                     }
                 )

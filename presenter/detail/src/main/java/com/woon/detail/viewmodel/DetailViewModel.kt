@@ -7,6 +7,7 @@ import com.woon.core.ext.formatToIso8601
 import com.woon.detail.ui.intent.DetailIntent
 import com.woon.detail.ui.mapper.toChartCandle
 import com.woon.detail.ui.state.DetailUiState
+import com.woon.domain.breadcrumb.recorder.BreadcrumbRecorder
 import com.woon.domain.candle.entity.constant.CandleType
 import com.woon.domain.candle.exception.CandleException
 import com.woon.domain.candle.usecase.GetHistoricalCandlesUseCase
@@ -32,7 +33,8 @@ class DetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val getHistoricalCandles: GetHistoricalCandlesUseCase,
     private val observeRealtimeCandles: ObserveRealtimeCandlesUseCase,
-    private val errorReporter: ErrorReporter
+    private val errorReporter: ErrorReporter,
+    private val breadcrumbRecorder: BreadcrumbRecorder
 ) : ViewModel() {
 
     private val marketCode: String = checkNotNull(savedStateHandle["marketCode"])
@@ -43,6 +45,11 @@ class DetailViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     private val _errorMessage = MutableStateFlow<String?>(null)
 
+    init {
+        breadcrumbRecorder.recordScreen(SCREEN_NAME, mapOf("marketCode" to marketCode))
+        loadCandle()
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     private val _realtimeCandle = _candleType
         .flatMapLatest { type ->
@@ -51,7 +58,7 @@ class DetailViewModel @Inject constructor(
                     marketCode = marketCode,
                     candleType = type
                 ).catch { e ->
-                    errorReporter.report(e, SCREEN_NAME)
+                    errorReporter.report(e, SCREEN_NAME, feature = FEATURE_REALTIME_CANDLE)
                 }
             } else {
                 emptyFlow()
@@ -85,17 +92,13 @@ class DetailViewModel @Inject constructor(
             }
         }
     }.catch { e ->
-        errorReporter.report(e, SCREEN_NAME)
+        errorReporter.report(e, SCREEN_NAME, feature = FEATURE_CANDLE_UI)
         emit(DetailUiState.Error(getErrorMessage(e)))
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = DetailUiState.Loading
     )
-
-    init {
-        loadCandle()
-    }
 
     private fun loadCandle() {
         if (_isLoading.value) return
@@ -117,7 +120,7 @@ class DetailViewModel @Inject constructor(
                         .toSortedSet(compareBy { it.timestamp })
                 }
             } catch (e: Throwable) {
-                errorReporter.report(e, SCREEN_NAME)
+                errorReporter.report(e, SCREEN_NAME, feature = FEATURE_CANDLE_LOAD)
                 _errorMessage.value = getErrorMessage(e)
             } finally {
                 _isLoading.value = false
@@ -128,6 +131,10 @@ class DetailViewModel @Inject constructor(
     fun onIntent(intent: DetailIntent) {
         when (intent) {
             is DetailIntent.ChangeTimeFrame -> {
+                breadcrumbRecorder.recordClick(
+                    "TimeFrameChange",
+                    mapOf("from" to _candleType.value.name, "to" to intent.candleType.name)
+                )
                 _candleType.value = intent.candleType
                 _historyCandle.value = sortedSetOf(compareBy { it.timestamp })
                 _errorMessage.value = null
@@ -149,5 +156,8 @@ class DetailViewModel @Inject constructor(
 
     companion object {
         private const val SCREEN_NAME = "DetailScreen"
+        private const val FEATURE_CANDLE_LOAD = "CandleLoad"
+        private const val FEATURE_REALTIME_CANDLE = "RealtimeCandle"
+        private const val FEATURE_CANDLE_UI = "CandleUI"
     }
 }

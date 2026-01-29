@@ -10,6 +10,10 @@ internal fun Project.applicationProject(
         namespace = "com.woon.chart"
         compileSdk = 36
 
+        buildFeatures {
+            buildConfig = true
+        }
+
         defaultConfig {
             applicationId = "com.woon.chart"
             minSdk = 24

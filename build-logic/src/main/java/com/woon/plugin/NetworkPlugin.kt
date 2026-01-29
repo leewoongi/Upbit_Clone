@@ -27,8 +27,8 @@ class NetworkPlugin : Plugin<Project> {
             }
 
             dependencies {
-                "implementation"(findLibrary("okhttp3"))
-                "implementation"(findLibrary("okhttp3-logging-interceptor"))
+                "api"(findLibrary("okhttp3"))
+                "api"(findLibrary("okhttp3-logging-interceptor"))
                 "implementation"(findLibrary("kotlinx-coroutines-core"))
                 "implementation"(findLibrary("gson"))
             }
