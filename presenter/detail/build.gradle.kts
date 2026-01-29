@@ -3,5 +3,5 @@ plugins {
 }
 
 android{
-    namespace = "com.woongi.presenter.detail"
+    namespace = "com.woon.presenter.detail"
 }

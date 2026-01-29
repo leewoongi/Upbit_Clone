@@ -1,8 +1,7 @@
 package com.woon.viewmodel
 
+import com.woon.model.constant.SortType
+
 sealed class HomeIntent {
-    object ChangeSortName : HomeIntent()
-    object ChangeSortPrice : HomeIntent()
-    object ChangeSortChange : HomeIntent()
-    object ChangeSortVolume : HomeIntent()
+    data class Sort(val type: SortType) : HomeIntent()
 }

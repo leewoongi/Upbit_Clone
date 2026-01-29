@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.navigation.compose.rememberNavController
 import com.woon.core.ui.design.theme.ChartAppTheme
+import com.woon.core.ui.provides.LocalNavController
 import com.woon.core.ui.design.theme.theme.ChartTheme
 import com.woon.main.ui.NavigationGraph
 import dagger.hilt.android.AndroidEntryPoint
@@ -29,10 +31,12 @@ class MainActivity : ComponentActivity() {
                     containerColor = ChartTheme.colors.background
                 ) { innerPadding ->
                     val navController = rememberNavController()
-                    NavigationGraph(
-                        navController = navController,
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                    CompositionLocalProvider(LocalNavController provides navController) {
+                        NavigationGraph(
+                            navController = navController,
+                            modifier = Modifier.padding(innerPadding)
+                        )
+                    }
                 }
             }
         }

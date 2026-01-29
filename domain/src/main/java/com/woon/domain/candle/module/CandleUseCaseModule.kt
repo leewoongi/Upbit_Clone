@@ -1,9 +1,9 @@
 package com.woon.domain.candle.module
 
-import com.woon.domain.candle.service.CalculatePriceRangeService
-import com.woon.domain.candle.service.GetCandleService
-import com.woon.domain.candle.usecase.CalculatePriceRangeUseCase
-import com.woon.domain.candle.usecase.GetCandleUseCase
+import com.woon.domain.candle.service.GetHistoricalCandlesService
+import com.woon.domain.candle.service.ObserveRealtimeCandlesService
+import com.woon.domain.candle.usecase.GetHistoricalCandlesUseCase
+import com.woon.domain.candle.usecase.ObserveRealtimeCandlesUseCase
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -14,13 +14,12 @@ import dagger.hilt.components.SingletonComponent
 abstract class CandleUseCaseModule {
 
     @Binds
-    abstract fun bindGetCandleUseCase(
-        getCandleService: GetCandleService
-    ): GetCandleUseCase
+    abstract fun bindGetHistoricalCandlesUseCase(
+        service: GetHistoricalCandlesService
+    ): GetHistoricalCandlesUseCase
 
     @Binds
-    abstract fun bindCalculatePriceRangeUseCase(
-        calculatePriceRangeService: CalculatePriceRangeService
-    ): CalculatePriceRangeUseCase
-
+    abstract fun bindObserveRealtimeCandlesUseCase(
+        service: ObserveRealtimeCandlesService
+    ): ObserveRealtimeCandlesUseCase
 }

@@ -3,9 +3,10 @@ plugins {
 }
 
 android{
-    namespace = "com.woongi.presenter.main"
+    namespace = "com.woon.presenter.main"
 }
 
 dependencies {
     implementation(project(":presenter:home"))
+    implementation(project(":presenter:detail"))
 }

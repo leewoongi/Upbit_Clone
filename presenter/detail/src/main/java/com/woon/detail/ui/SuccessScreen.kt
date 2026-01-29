@@ -12,7 +12,6 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.woon.core.ui.design.theme.color.colorBackground
 import com.woon.core.ui.design.util.ScreenRatios
-import com.woon.detail.ui.screen.MarketPriceScreen
 import com.woon.detail.ui.screen.MarketTopBarScreen
 import com.woon.detail.ui.state.DetailUiState
 
@@ -35,7 +34,7 @@ fun SuccessScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(ScreenRatios.HEADER_RATIO),
-            market = uiState.market.code,
+            market = uiState.marketCode,
             price = 20000.toDouble()
         )
     }

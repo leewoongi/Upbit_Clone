@@ -1,20 +1,11 @@
 package com.woon.datasource.remote.http.candle.response
 
 import com.google.gson.annotations.SerializedName
+import com.woon.domain.candle.entity.Candle
+import com.woon.domain.candle.entity.constant.CandleType
+import com.woon.domain.money.entity.Money
+import java.util.Date
 
-/**
- * @param market 시장
- * @param candleDateTimeUtc UTC 기준 시각
- * @param candleDateTimeKst KST 기준 시각
- * @param openingPrice 시가
- * @param highPrice 고가
- * @param lowPrice 저가
- * @param tradePrice 종가 (현재 가격)
- * @param timestamp 마지막 거래 시간
- * @param candleAccTradePrice 누적 거래 대금
- * @param candleAccTradeVolume 누적 거래량
- * @param unit 분 단위 (분 단위부터 적용)
- */
 data class CandleResponse(
     @SerializedName("market") val market: String,
     @SerializedName("candle_date_time_utc") val candleDateTimeUtc: String,
@@ -26,5 +17,36 @@ data class CandleResponse(
     @SerializedName("timestamp") val timestamp: Long,
     @SerializedName("candle_acc_trade_price") val candleAccTradePrice: Double,
     @SerializedName("candle_acc_trade_volume") val candleAccTradeVolume: Double,
-    @SerializedName("unit") val unit: Int?
-)
+    @SerializedName("unit") val unit: Int? = null
+) {
+    fun toDomain(type: CandleType): Candle {
+        return Candle(
+            market = market,
+            type = type,
+            dateTime = candleDateTimeUtc,
+            open = Money(openingPrice),
+            high = Money(highPrice),
+            low = Money(lowPrice),
+            close = Money(tradePrice),
+            timestamp = Date(timestamp),
+            accTradePrice = Money(candleAccTradePrice),
+            accTradeVolume = candleAccTradeVolume
+        )
+    }
+
+    // 분봉용 (unit 사용)
+    fun toDomain(): Candle {
+        return Candle(
+            market = market,
+            type = unit?.let { CandleType.fromRestUnit(it) } ?: CandleType.MINUTE_1,
+            dateTime = candleDateTimeUtc,
+            open = Money(openingPrice),
+            high = Money(highPrice),
+            low = Money(lowPrice),
+            close = Money(tradePrice),
+            timestamp = Date(timestamp),
+            accTradePrice = Money(candleAccTradePrice),
+            accTradeVolume = candleAccTradeVolume
+        )
+    }
+}

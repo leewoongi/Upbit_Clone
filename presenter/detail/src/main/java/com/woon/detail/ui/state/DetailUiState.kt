@@ -1,14 +1,14 @@
 package com.woon.detail.ui.state
 
-import com.woon.domain.candle.entity.constant.Market
-import com.woon.detail.model.CandleUiModel
+import com.woon.chart.core.model.candle.TradingCandle
 
 sealed class DetailUiState {
+    data object Loading : DetailUiState()
+
     data class Success(
-        val market: Market,
-        val uiModel: List<CandleUiModel>,
-        val priceRange: Pair<Double, Double>,
-        val viewportPriceRange: Pair<Double, Double>? = null
+        val marketCode: String,
+        val candles: List<TradingCandle> = emptyList()
     ) : DetailUiState()
-    data object Loading: DetailUiState()
+
+    data class Error(val message: String) : DetailUiState()
 }

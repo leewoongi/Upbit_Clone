@@ -27,15 +27,11 @@ class TickerDataSourceImpl
             .build()
 
 
-        return webSocketClient.receive().onStart {
-            webSocketClient.connect(request)
-        }.map { response ->
+        return webSocketClient.observe(request).map { response ->
             when (response) {
                 is WebSocketResponse.Success -> {
                     val json = response.toUtf8()
-                    Log.d(TAG, "Ticker JSON: $json")
                     val ticker = gson.fromJson(json, TickerResponse::class.java).toDomain()
-                    Log.d(TAG, "Ticker: code=${ticker.code}, price=${ticker.tradePrice}, change=${ticker.change}")
                     ticker
                 }
                 is WebSocketResponse.Failure -> {

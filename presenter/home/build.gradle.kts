@@ -3,5 +3,5 @@ plugins {
 }
 
 android{
-    namespace = "com.woongi.presenter.home"
+    namespace = "com.woon.presenter.home"
 }

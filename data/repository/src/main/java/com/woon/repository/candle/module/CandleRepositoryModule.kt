@@ -1,7 +1,7 @@
 package com.woon.repository.candle.module
 
 import com.woon.domain.candle.repository.CandleRepository
-import com.woon.repository.candle.GetCandleRepositoryImpl
+import com.woon.repository.candle.CandleRepositoryImpl
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -13,7 +13,7 @@ abstract class CandleRepositoryModule {
 
     @Binds
     abstract fun bindCandleRepository(
-        getCandleRepositoryImpl: GetCandleRepositoryImpl
+        impl: CandleRepositoryImpl
     ): CandleRepository
 
 }
