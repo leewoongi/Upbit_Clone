@@ -201,6 +201,11 @@ class TradingChartState(
         return (_screenHeight * (1 - (price - minPrice) / priceRange)).toFloat()
     }
 
+    fun yToPrice(y: Float): Double {
+        if (_screenHeight == 0f) return 0.0
+        return minPrice + priceRange * (1 - y / _screenHeight)
+    }
+
     // ========================================
     // 시간 격자 계산
     // ========================================

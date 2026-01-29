@@ -22,6 +22,7 @@ import com.woon.chart.ui.theme.chartTextColor
 fun PriceScale(
     state: TradingChartState,
     modifier: Modifier = Modifier,
+    crosshairY: Float? = null,
     textColor: Color = chartTextColor,
     backgroundColor: Color = chartBackgroundColor
 ) {
@@ -48,6 +49,27 @@ fun PriceScale(
             drawText(
                 textLayoutResult = textLayout,
                 topLeft = Offset(8f, y - textLayout.size.height / 2)
+            )
+        }
+
+        crosshairY?.let { y ->
+            val crosshairPrice = state.yToPrice(y)
+            val crosshairText = crosshairPrice.formatPrice()
+            val crosshairTextLayout = textMeasurer.measure(
+                crosshairText,
+                TextStyle(color = backgroundColor, fontSize = 10.sp)
+            )
+            val labelHeight = crosshairTextLayout.size.height + 8f
+            val labelY = (y - labelHeight / 2).coerceIn(0f, size.height - labelHeight)
+
+            drawRect(
+                color = textColor,
+                topLeft = Offset(0f, labelY),
+                size = androidx.compose.ui.geometry.Size(size.width, labelHeight)
+            )
+            drawText(
+                textLayoutResult = crosshairTextLayout,
+                topLeft = Offset(8f, labelY + 4f)
             )
         }
     }

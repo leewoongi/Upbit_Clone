@@ -156,6 +156,9 @@ fun TradingChart(
 
             PriceScale(
                 state = state,
+                crosshairY = if (state.indicatorState.crosshairConfig.model.enabled) {
+                    state.indicatorState.crosshairConfig.model.y
+                } else null,
                 modifier = Modifier
                     .width(priceScaleWidth)
                     .fillMaxHeight()
