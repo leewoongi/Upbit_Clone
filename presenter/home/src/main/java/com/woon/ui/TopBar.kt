@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,6 +24,7 @@ fun TopBar(
     modifier: Modifier = Modifier,
     selectedType: ChartChipType,
     onTabSelected: (ChartChipType) -> Unit,
+    onNotificationClick: () -> Unit = {},
 ){
     Box(
         modifier = modifier.fillMaxWidth(),
@@ -56,12 +58,14 @@ fun TopBar(
                 tint = ChartTheme.colors.onBackground
             )
 
-            Icon(
-                imageVector = Icons.Outlined.Notifications,
-                contentDescription = "Notifications",
-                modifier = Modifier.size(24.dp),
-                tint = ChartTheme.colors.onBackground
-            )
+            IconButton(onClick = onNotificationClick) {
+                Icon(
+                    imageVector = Icons.Outlined.Notifications,
+                    contentDescription = "Notifications",
+                    modifier = Modifier.size(24.dp),
+                    tint = ChartTheme.colors.onBackground,
+                )
+            }
         }
     }
 }

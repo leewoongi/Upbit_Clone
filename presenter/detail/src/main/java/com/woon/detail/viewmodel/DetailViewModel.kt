@@ -8,8 +8,10 @@ import com.woon.detail.ui.intent.DetailIntent
 import com.woon.detail.ui.mapper.toChartCandle
 import com.woon.detail.ui.state.DetailUiState
 import com.woon.domain.candle.entity.constant.CandleType
+import com.woon.domain.candle.exception.CandleException
 import com.woon.domain.candle.usecase.GetHistoricalCandlesUseCase
 import com.woon.domain.candle.usecase.ObserveRealtimeCandlesUseCase
+import com.woon.domain.event.reporter.ErrorReporter
 import com.woon.chart.core.model.candle.TradingCandle
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -17,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
@@ -25,11 +28,11 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class DetailViewModel
-@Inject constructor(
+class DetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val getHistoricalCandles: GetHistoricalCandlesUseCase,
-    private val observeRealtimeCandles: ObserveRealtimeCandlesUseCase
+    private val observeRealtimeCandles: ObserveRealtimeCandlesUseCase,
+    private val errorReporter: ErrorReporter
 ) : ViewModel() {
 
     private val marketCode: String = checkNotNull(savedStateHandle["marketCode"])
@@ -38,6 +41,7 @@ class DetailViewModel
     private val _candleType = MutableStateFlow(CandleType.MINUTE_1)
     val candleType: StateFlow<CandleType> = _candleType.asStateFlow()
     private val _isLoading = MutableStateFlow(false)
+    private val _errorMessage = MutableStateFlow<String?>(null)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val _realtimeCandle = _candleType
@@ -46,7 +50,9 @@ class DetailViewModel
                 observeRealtimeCandles.invoke(
                     marketCode = marketCode,
                     candleType = type
-                )
+                ).catch { e ->
+                    errorReporter.report(e, SCREEN_NAME)
+                }
             } else {
                 emptyFlow()
             }
@@ -55,26 +61,32 @@ class DetailViewModel
     val uiState = combine(
         _candleType,
         _realtimeCandle,
-        _historyCandle
-    ) { type, realtimeCandle, historyCandles ->
-        if (historyCandles.isEmpty()) {
-            DetailUiState.Loading
-        } else {
-            val candles = if (type.supportsWebSocket) {
-                historyCandles.toMutableList().apply {
-                    if (isNotEmpty()) {
-                        set(lastIndex, realtimeCandle.toChartCandle())
+        _historyCandle,
+        _errorMessage
+    ) { type, realtimeCandle, historyCandles, errorMessage ->
+        when {
+            errorMessage != null -> DetailUiState.Error(errorMessage)
+            historyCandles.isEmpty() -> DetailUiState.Loading
+            else -> {
+                val candles = if (type.supportsWebSocket) {
+                    historyCandles.toMutableList().apply {
+                        if (isNotEmpty()) {
+                            set(lastIndex, realtimeCandle.toChartCandle())
+                        }
                     }
+                } else {
+                    historyCandles
                 }
-            } else {
-                historyCandles
-            }
 
-            DetailUiState.Success(
-                marketCode = marketCode,
-                candles = candles.toList()
-            )
+                DetailUiState.Success(
+                    marketCode = marketCode,
+                    candles = candles.toList()
+                )
+            }
         }
+    }.catch { e ->
+        errorReporter.report(e, SCREEN_NAME)
+        emit(DetailUiState.Error(getErrorMessage(e)))
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -86,8 +98,10 @@ class DetailViewModel
     }
 
     private fun loadCandle() {
-        if (_isLoading.value) return // 이미 로딩 중이면 무시
-        _isLoading.value = true // 코루틴 전에 먼저 설정
+        if (_isLoading.value) return
+        _isLoading.value = true
+        _errorMessage.value = null
+
         viewModelScope.launch {
             try {
                 val newCandles = getHistoricalCandles(
@@ -102,6 +116,11 @@ class DetailViewModel
                     _historyCandle.value = (newCandles + _historyCandle.value)
                         .toSortedSet(compareBy { it.timestamp })
                 }
+            } catch (e: CandleException) {
+                _errorMessage.value = e.message
+            } catch (e: Throwable) {
+                errorReporter.report(e, SCREEN_NAME)
+                _errorMessage.value = "알 수 없는 오류가 발생했습니다"
             } finally {
                 _isLoading.value = false
             }
@@ -112,7 +131,8 @@ class DetailViewModel
         when (intent) {
             is DetailIntent.ChangeTimeFrame -> {
                 _candleType.value = intent.candleType
-                _historyCandle.value = sortedSetOf(compareBy { it.timestamp }) // 초기화
+                _historyCandle.value = sortedSetOf(compareBy { it.timestamp })
+                _errorMessage.value = null
                 loadCandle()
             }
 
@@ -120,5 +140,16 @@ class DetailViewModel
                 loadCandle()
             }
         }
+    }
+
+    private fun getErrorMessage(e: Throwable): String {
+        return when (e) {
+            is CandleException -> e.message
+            else -> "알 수 없는 오류가 발생했습니다"
+        }
+    }
+
+    companion object {
+        private const val SCREEN_NAME = "DetailScreen"
     }
 }

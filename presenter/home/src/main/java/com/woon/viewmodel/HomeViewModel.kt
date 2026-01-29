@@ -2,8 +2,12 @@ package com.woon.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.woon.domain.event.reporter.ErrorReporter
+import com.woon.domain.market.exception.MarketException
 import com.woon.domain.market.usecase.GetMarketsUseCase
+import com.woon.domain.ticker.exception.TickerException
 import com.woon.domain.ticker.usecase.GetTickersUseCase
+import kotlinx.coroutines.launch
 import com.woon.ext.sortedBy
 import com.woon.model.constant.SortType
 import com.woon.model.mapper.toCoinUiModel
@@ -26,7 +30,8 @@ import javax.inject.Inject
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val getMarketsUseCase: GetMarketsUseCase,
-    private val getTickersUseCase: GetTickersUseCase
+    private val getTickersUseCase: GetTickersUseCase,
+    private val errorReporter: ErrorReporter
 ) : ViewModel() {
 
     private val _sortFlow = MutableStateFlow(SortUiState())
@@ -56,26 +61,38 @@ class HomeViewModel @Inject constructor(
             sort = sort
         )
     }.catch { e ->
+        errorReporter.report(e, SCREEN_NAME)
         emit(
             HomeScreenUiState(
-                dataState = HomeDataState.Error(e.message ?: "Error")
+                dataState = HomeDataState.Error(getErrorMessage(e))
             )
         )
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(0),  // 👈 구독 끊기면 즉시 중지
+        started = SharingStarted.WhileSubscribed(0),
         initialValue = HomeScreenUiState()
     )
 
     fun onIntent(intent: HomeIntent) {
         when (intent) {
-            is HomeIntent.Sort -> {
-                onSortClick(intent.type)
-            }
+            is HomeIntent.Sort -> { onSortClick(intent.type) }
+            is HomeIntent.NotificationClick -> { /* TODO */ }
         }
     }
 
     fun onSortClick(type: SortType) {
         _sortFlow.update { it.toggle(type) }
+    }
+
+    private fun getErrorMessage(e: Throwable): String {
+        return when (e) {
+            is MarketException -> e.message
+            is TickerException -> e.message
+            else -> "알 수 없는 오류가 발생했습니다"
+        }
+    }
+
+    companion object {
+        private const val SCREEN_NAME = "HomeScreen"
     }
 }

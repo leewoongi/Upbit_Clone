@@ -60,7 +60,8 @@ fun HomeScreen() {
         TopBar(
             modifier = Modifier.fillMaxWidth(),
             selectedType = selectedType,
-            onTabSelected = { type -> selectedType = type }
+            onTabSelected = { type -> selectedType = type },
+            onNotificationClick = { viewModel.onIntent(HomeIntent.NotificationClick) }
         )
 
         Spacer(modifier = Modifier.height(8.dp))

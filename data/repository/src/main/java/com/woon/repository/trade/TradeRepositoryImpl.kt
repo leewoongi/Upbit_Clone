@@ -1,8 +1,10 @@
 package com.woon.repository.trade
 
 import com.woon.domain.trade.entity.Trade
+import com.woon.domain.trade.exception.TradeException
 import com.woon.domain.trade.repository.TradeRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.emptyFlow
 import javax.inject.Inject
 
@@ -18,6 +20,10 @@ class TradeRepositoryImpl @Inject constructor() : TradeRepository {
 
     override fun observeTrades(codes: List<String>): Flow<Trade> {
         // TODO: Implement after network module is ready
-        return emptyFlow()
+        return emptyFlow<Trade>()
+            .catch { e ->
+                if (e is TradeException) throw e
+                throw TradeException.WebSocketConnectionException(cause = e)
+            }
     }
 }
