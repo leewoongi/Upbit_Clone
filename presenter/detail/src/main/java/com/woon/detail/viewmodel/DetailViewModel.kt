@@ -116,11 +116,9 @@ class DetailViewModel @Inject constructor(
                     _historyCandle.value = (newCandles + _historyCandle.value)
                         .toSortedSet(compareBy { it.timestamp })
                 }
-            } catch (e: CandleException) {
-                _errorMessage.value = e.message
             } catch (e: Throwable) {
                 errorReporter.report(e, SCREEN_NAME)
-                _errorMessage.value = "알 수 없는 오류가 발생했습니다"
+                _errorMessage.value = getErrorMessage(e)
             } finally {
                 _isLoading.value = false
             }

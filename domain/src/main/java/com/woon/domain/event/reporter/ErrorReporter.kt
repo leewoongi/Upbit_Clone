@@ -33,13 +33,13 @@ class ErrorReporter @Inject constructor(
 
     /**
      * 에러를 리포트합니다.
-     * Critical 에러인 경우에만 서버로 전송합니다.
+     * CancellationException을 제외한 모든 에러를 서버로 전송합니다.
      *
      * @param throwable 발생한 에러
      * @param screen 에러가 발생한 화면 이름
      */
     fun report(throwable: Throwable, screen: String) {
-        if (!isCriticalError(throwable)) return
+        if (!shouldReport(throwable)) return
 
         val event = ErrorEvent(
             type = getErrorType(throwable),
@@ -56,46 +56,13 @@ class ErrorReporter @Inject constructor(
     }
 
     /**
-     * Critical 에러 여부를 판단합니다.
-     * - CancellationException: 코루틴 취소는 정상 동작
-     * - 도메인 Exception: 예상된 에러 (네트워크, 서버 에러 등)
-     * - 나머지: Critical 에러
+     * 리포트 여부를 판단합니다.
+     * - CancellationException: 코루틴 취소는 정상 동작이므로 제외
+     * - 나머지 모든 에러: 서버로 전송
      */
-    fun isCriticalError(throwable: Throwable): Boolean {
-        // 코루틴 취소는 정상 동작
-        if (throwable is CancellationException) return false
-
-        // 도메인 예외는 예상된 에러이므로 critical이 아님
-        if (isDomainException(throwable)) return false
-
-        // 시스템/런타임 에러는 critical
-        return when (throwable) {
-            is NullPointerException,
-            is IllegalStateException,
-            is IndexOutOfBoundsException,
-            is ConcurrentModificationException,
-            is ClassCastException,
-            is SecurityException,
-            is IllegalArgumentException,
-            is NoSuchElementException,
-            is UnsupportedOperationException,
-            is OutOfMemoryError,
-            is StackOverflowError -> true
-            else -> {
-                // SQLite 에러 체크 (리플렉션 없이)
-                throwable.javaClass.name.contains("SQLite")
-            }
-        }
-    }
-
-    /**
-     * 도메인 예외인지 확인합니다.
-     */
-    private fun isDomainException(throwable: Throwable): Boolean {
-        return throwable is CandleException ||
-                throwable is MarketException ||
-                throwable is TickerException ||
-                throwable is TradeException
+    private fun shouldReport(throwable: Throwable): Boolean {
+        // 코루틴 취소는 정상 동작이므로 리포트하지 않음
+        return throwable !is CancellationException
     }
 
     /**
@@ -103,6 +70,12 @@ class ErrorReporter @Inject constructor(
      */
     private fun getErrorType(throwable: Throwable): String {
         return when (throwable) {
+            // 도메인 예외
+            is CandleException -> getCandleErrorType(throwable)
+            is MarketException -> getMarketErrorType(throwable)
+            is TickerException -> getTickerErrorType(throwable)
+            is TradeException -> getTradeErrorType(throwable)
+            // 시스템/런타임 에러
             is NullPointerException -> "NULL_POINTER"
             is IllegalStateException -> "ILLEGAL_STATE"
             is IndexOutOfBoundsException -> "INDEX_OUT_OF_BOUNDS"
@@ -115,6 +88,66 @@ class ErrorReporter @Inject constructor(
             is OutOfMemoryError -> "OUT_OF_MEMORY"
             is StackOverflowError -> "STACK_OVERFLOW"
             else -> "UNKNOWN"
+        }
+    }
+
+    private fun getCandleErrorType(e: CandleException): String {
+        return when (e) {
+            is CandleException.NetworkException -> "CANDLE_NETWORK"
+            is CandleException.TimeoutException -> "CANDLE_TIMEOUT"
+            is CandleException.RateLimitExceededException -> "CANDLE_RATE_LIMIT"
+            is CandleException.ServerException -> "CANDLE_SERVER"
+            is CandleException.ClientException -> "CANDLE_CLIENT"
+            is CandleException.ParseException -> "CANDLE_PARSE"
+            is CandleException.InvalidMarketCodeException -> "CANDLE_INVALID_MARKET_CODE"
+            is CandleException.InvalidParameterException -> "CANDLE_INVALID_PARAMETER"
+            is CandleException.WebSocketConnectionException -> "CANDLE_WEBSOCKET_CONNECTION"
+            is CandleException.WebSocketDisconnectedException -> "CANDLE_WEBSOCKET_DISCONNECTED"
+            is CandleException.EmptyDataException -> "CANDLE_EMPTY_DATA"
+            is CandleException.SSLException -> "CANDLE_SSL"
+            is CandleException.UnknownException -> "CANDLE_UNKNOWN"
+        }
+    }
+
+    private fun getMarketErrorType(e: MarketException): String {
+        return when (e) {
+            is MarketException.NetworkException -> "MARKET_NETWORK"
+            is MarketException.TimeoutException -> "MARKET_TIMEOUT"
+            is MarketException.RateLimitExceededException -> "MARKET_RATE_LIMIT"
+            is MarketException.ServerException -> "MARKET_SERVER"
+            is MarketException.ClientException -> "MARKET_CLIENT"
+            is MarketException.ParseException -> "MARKET_PARSE"
+            is MarketException.EmptyDataException -> "MARKET_EMPTY_DATA"
+            is MarketException.SSLException -> "MARKET_SSL"
+            is MarketException.UnknownException -> "MARKET_UNKNOWN"
+        }
+    }
+
+    private fun getTickerErrorType(e: TickerException): String {
+        return when (e) {
+            is TickerException.NetworkException -> "TICKER_NETWORK"
+            is TickerException.TimeoutException -> "TICKER_TIMEOUT"
+            is TickerException.ParseException -> "TICKER_PARSE"
+            is TickerException.WebSocketConnectionException -> "TICKER_WEBSOCKET_CONNECTION"
+            is TickerException.WebSocketDisconnectedException -> "TICKER_WEBSOCKET_DISCONNECTED"
+            is TickerException.InvalidMarketCodeException -> "TICKER_INVALID_MARKET_CODE"
+            is TickerException.EmptyDataException -> "TICKER_EMPTY_DATA"
+            is TickerException.SSLException -> "TICKER_SSL"
+            is TickerException.UnknownException -> "TICKER_UNKNOWN"
+        }
+    }
+
+    private fun getTradeErrorType(e: TradeException): String {
+        return when (e) {
+            is TradeException.NetworkException -> "TRADE_NETWORK"
+            is TradeException.TimeoutException -> "TRADE_TIMEOUT"
+            is TradeException.ParseException -> "TRADE_PARSE"
+            is TradeException.WebSocketConnectionException -> "TRADE_WEBSOCKET_CONNECTION"
+            is TradeException.WebSocketDisconnectedException -> "TRADE_WEBSOCKET_DISCONNECTED"
+            is TradeException.InvalidMarketCodeException -> "TRADE_INVALID_MARKET_CODE"
+            is TradeException.EmptyDataException -> "TRADE_EMPTY_DATA"
+            is TradeException.SSLException -> "TRADE_SSL"
+            is TradeException.UnknownException -> "TRADE_UNKNOWN"
         }
     }
 
