@@ -1,5 +1,6 @@
 plugins {
     id("chart.data")
+    id("chart.datastore")
 }
 
 android{

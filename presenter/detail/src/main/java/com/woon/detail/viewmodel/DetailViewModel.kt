@@ -45,6 +45,10 @@ class DetailViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     private val _errorMessage = MutableStateFlow<String?>(null)
 
+    // Throttle을 위한 마지막 기록 시간
+    private var lastZoomRecordTime = 0L
+    private var lastScrollRecordTime = 0L
+
     init {
         breadcrumbRecorder.recordScreen(SCREEN_NAME, mapOf("marketCode" to marketCode))
         loadCandle()
@@ -142,7 +146,38 @@ class DetailViewModel @Inject constructor(
             }
 
             is DetailIntent.LoadCandle -> {
+                breadcrumbRecorder.recordClick("ChartLoadMore")
                 loadCandle()
+            }
+
+            is DetailIntent.ChartZoom -> {
+                val now = System.currentTimeMillis()
+                if (now - lastZoomRecordTime > THROTTLE_MS) {
+                    lastZoomRecordTime = now
+                    val direction = if (intent.zoomFactor > 1f) "IN" else "OUT"
+                    breadcrumbRecorder.recordClick(
+                        "ChartZoom",
+                        mapOf("direction" to direction)
+                    )
+                }
+            }
+
+            is DetailIntent.ChartScroll -> {
+                val now = System.currentTimeMillis()
+                if (now - lastScrollRecordTime > THROTTLE_MS) {
+                    lastScrollRecordTime = now
+                    breadcrumbRecorder.recordClick(
+                        "ChartScroll",
+                        mapOf("direction" to intent.direction)
+                    )
+                }
+            }
+
+            is DetailIntent.CrosshairToggle -> {
+                breadcrumbRecorder.recordClick(
+                    "CrosshairToggle",
+                    mapOf("enabled" to intent.enabled.toString())
+                )
             }
         }
     }
@@ -159,5 +194,6 @@ class DetailViewModel @Inject constructor(
         private const val FEATURE_CANDLE_LOAD = "CandleLoad"
         private const val FEATURE_REALTIME_CANDLE = "RealtimeCandle"
         private const val FEATURE_CANDLE_UI = "CandleUI"
+        private const val THROTTLE_MS = 500L  // 0.5초 throttle
     }
 }

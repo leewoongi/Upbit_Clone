@@ -2,6 +2,7 @@ package com.woon.chart.provider
 
 import com.woon.chart.BuildConfig
 import com.woon.domain.event.provider.AppInfoProvider
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -13,4 +14,7 @@ class AppInfoProviderImpl @Inject constructor() : AppInfoProvider {
 
     override val buildType: String
         get() = BuildConfig.BUILD_TYPE
+
+    override val locale: String
+        get() = Locale.getDefault().toString()  // e.g., "ko_KR"
 }

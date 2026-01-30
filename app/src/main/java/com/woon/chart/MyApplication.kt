@@ -1,6 +1,7 @@
 package com.woon.chart
 
 import android.app.Application
+import com.woon.chart.receiver.SystemEventReceiver
 import com.woon.domain.breadcrumb.recorder.BreadcrumbRecorder
 import com.woon.network.interceptor.HttpEventInterceptor
 import com.woon.network.interceptor.HttpEventListener
@@ -16,9 +17,13 @@ class MyApplication : Application() {
     @Inject
     lateinit var breadcrumbRecorder: BreadcrumbRecorder
 
+    @Inject
+    lateinit var systemEventReceiver: SystemEventReceiver
+
     override fun onCreate() {
         super.onCreate()
         setupHttpBreadcrumb()
+        setupSystemEventReceiver()
     }
 
     private fun setupHttpBreadcrumb() {
@@ -32,5 +37,9 @@ class MyApplication : Application() {
                 )
             }
         })
+    }
+
+    private fun setupSystemEventReceiver() {
+        systemEventReceiver.register(this)
     }
 }

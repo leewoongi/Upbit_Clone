@@ -90,7 +90,15 @@ fun DetailScreen(
                         .addLine(period = 60, color = chartMa60Color, type = MAType.EMA, strokeWidth = 2.5f)
                         .addLine(period = 120, color = chartMa120Color, type = MAType.EMA, strokeWidth = 3f)
                         .addLine(period = 200, color = chartMa200Color, type = MAType.EMA, strokeWidth = 3.5f),
-                    onReachStart = { viewModel.onIntent(DetailIntent.LoadCandle) }
+                    onReachStart = { viewModel.onIntent(DetailIntent.LoadCandle) },
+                    onZoom = { zoom -> viewModel.onIntent(DetailIntent.ChartZoom(zoom)) },
+                    onScroll = { deltaX ->
+                        val direction = if (deltaX > 0) "RIGHT" else "LEFT"
+                        viewModel.onIntent(DetailIntent.ChartScroll(direction))
+                    },
+                    onCrosshairToggle = { enabled ->
+                        viewModel.onIntent(DetailIntent.CrosshairToggle(enabled))
+                    }
                 )
             }
             is DetailUiState.Error -> {}

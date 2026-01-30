@@ -54,6 +54,10 @@ class BreadcrumbRecorder @Inject constructor(
         )
     }
 
+    fun recordSystem(name: String, attrs: Map<String, String> = emptyMap()) {
+        record(BreadcrumbType.SYSTEM, name, attrs)
+    }
+
     fun getRecent(limit: Int = DEFAULT_LIMIT): List<Breadcrumb> {
         synchronized(lock) {
             return buffer.toList().takeLast(limit)

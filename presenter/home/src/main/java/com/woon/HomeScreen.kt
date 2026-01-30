@@ -60,7 +60,10 @@ fun HomeScreen() {
         TopBar(
             modifier = Modifier.fillMaxWidth(),
             selectedType = selectedType,
-            onTabSelected = { type -> selectedType = type },
+            onTabSelected = { type ->
+                viewModel.recordClick("TopTab", mapOf("tab" to type.name))
+                selectedType = type
+            },
             onNotificationClick = { viewModel.onIntent(HomeIntent.NotificationClick) }
         )
 
@@ -92,7 +95,10 @@ fun HomeScreen() {
             modifier = Modifier
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             selectedMarket = selectedMarket,
-            onMarketSelected = { selectedMarket = it }
+            onMarketSelected = { market ->
+                viewModel.recordClick("MarketTab", mapOf("market" to market.name))
+                selectedMarket = market
+            }
         )
 
         HorizontalDivider(

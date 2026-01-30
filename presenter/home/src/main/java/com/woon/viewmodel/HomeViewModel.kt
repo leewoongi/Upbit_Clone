@@ -94,7 +94,15 @@ class HomeViewModel @Inject constructor(
     }
 
     fun onSortClick(type: SortType) {
-        _sortFlow.update { it.toggle(type) }
+        val newState = _sortFlow.value.toggle(type)
+        breadcrumbRecorder.recordClick(
+            "Sort",
+            mapOf(
+                "type" to type.name,
+                "order" to (newState.orderFor(type)?.name ?: "NONE")
+            )
+        )
+        _sortFlow.value = newState
     }
 
     fun recordClick(name: String, attrs: Map<String, String> = emptyMap()) {

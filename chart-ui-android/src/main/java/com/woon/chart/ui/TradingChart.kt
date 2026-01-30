@@ -58,7 +58,10 @@ fun TradingChart(
     fallingColor: Color = chartFallingColor,
     priceScaleWidth: Dp = 60.dp,
     timeScaleHeight: Dp = 24.dp,
-    onReachStart: () -> Unit = {}
+    onReachStart: () -> Unit = {},
+    onZoom: (zoomFactor: Float) -> Unit = {},
+    onScroll: (deltaX: Float) -> Unit = {},
+    onCrosshairToggle: (enabled: Boolean) -> Unit = {}
 ) {
     SideEffect {
         state.indicatorState.update(grid.build())
@@ -94,6 +97,7 @@ fun TradingChart(
                             detectTapGestures(
                                 onTap = { offset ->
                                     state.indicatorState.toggleCrosshair(offset.x, offset.y)
+                                    onCrosshairToggle(state.indicatorState.crosshairConfig.model.enabled)
                                 }
                             )
                         }
@@ -101,11 +105,13 @@ fun TradingChart(
                             detectTransformGestures { centroid, pan, zoom, _ ->
                                 if (zoom != 1f) {
                                     state.zoomAt(zoom, centroid.x)
+                                    onZoom(zoom)
                                 } else if (pan != Offset.Zero) {
                                     if (state.indicatorState.crosshairConfig.model.enabled) {
                                         state.indicatorState.moveCrosshair(centroid.x, centroid.y)
                                     } else {
                                         state.scroll(pan.x)
+                                        onScroll(pan.x)
                                         if (state.isNearStart) onReachStart()
                                     }
                                 }

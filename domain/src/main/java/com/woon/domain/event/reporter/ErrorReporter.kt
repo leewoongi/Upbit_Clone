@@ -1,11 +1,15 @@
 package com.woon.domain.event.reporter
 
 import com.woon.domain.breadcrumb.model.Breadcrumb
+import com.woon.domain.breadcrumb.model.BreadcrumbType
 import com.woon.domain.breadcrumb.recorder.BreadcrumbRecorder
 import com.woon.domain.candle.exception.CandleException
 import com.woon.domain.event.entity.ErrorEvent
 import com.woon.domain.event.provider.AppInfoProvider
 import com.woon.domain.event.provider.DeviceInfoProvider
+import com.woon.domain.event.provider.InstallIdProvider
+import com.woon.domain.event.provider.NetworkStateProvider
+import com.woon.domain.event.storage.PendingErrorEventStorage
 import com.woon.domain.event.usecase.SendErrorEventUseCase
 import com.woon.domain.market.exception.MarketException
 import com.woon.domain.session.SessionIdProvider
@@ -16,6 +20,7 @@ import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.PrintWriter
 import java.io.StringWriter
@@ -28,7 +33,10 @@ class ErrorReporter @Inject constructor(
     private val sessionIdProvider: SessionIdProvider,
     private val breadcrumbRecorder: BreadcrumbRecorder,
     private val appInfoProvider: AppInfoProvider,
-    private val deviceInfoProvider: DeviceInfoProvider
+    private val deviceInfoProvider: DeviceInfoProvider,
+    private val pendingEventStorage: PendingErrorEventStorage,
+    private val networkStateProvider: NetworkStateProvider,
+    private val installIdProvider: InstallIdProvider
 ) {
     private val scope = CoroutineScope(
         SupervisorJob() + Dispatchers.IO + CoroutineExceptionHandler { _, _ -> }
@@ -39,6 +47,49 @@ class ErrorReporter @Inject constructor(
 
     init {
         previousSessionBreadcrumbs = breadcrumbRecorder.consumePreviousSnapshot()
+        // 앱 시작 시 저장된 대기 이벤트 전송 시도
+        scope.launch {
+            delay(3000) // 앱 초기화 완료 대기
+            flushPendingQueue()
+        }
+        startRetryLoop()
+    }
+
+    /**
+     * 주기적으로 대기 큐의 이벤트 재전송 시도
+     */
+    private fun startRetryLoop() {
+        scope.launch {
+            while (true) {
+                delay(RETRY_INTERVAL_MS)
+                flushPendingQueue()
+            }
+        }
+    }
+
+    /**
+     * 대기 큐의 이벤트들을 전송 시도 (Room에서 로드)
+     */
+    private suspend fun flushPendingQueue() {
+        val pendingEvents = pendingEventStorage.getAll()
+        if (pendingEvents.isEmpty()) return
+
+        println("[ErrorReporter] Flushing pending queue: ${pendingEvents.size} events from storage")
+
+        val eventsToRetry = pendingEvents.take(MAX_RETRY_BATCH)
+
+        for (event in eventsToRetry) {
+            val result = sendErrorEventUseCase(event)
+
+            result.onSuccess {
+                println("[ErrorReporter] Pending event sent successfully: ${event.type}")
+                // 전송 성공 시 Room에서 삭제
+                pendingEventStorage.delete(event.id)
+            }.onFailure { e ->
+                println("[ErrorReporter] Failed to send pending event: ${e.message}")
+                // 실패 시 그대로 유지 (다음 retry에서 재시도)
+            }
+        }
     }
 
     /**
@@ -82,6 +133,8 @@ class ErrorReporter @Inject constructor(
         val errorType = getErrorType(throwable)
         val message = throwable.message ?: throwable.javaClass.simpleName
         val stack = getStackTraceString(throwable)
+        val topFrame = extractTopStackFrame(stack)
+        val normalizedMessage = normalizeMessage(message)
 
         val event = ErrorEvent(
             type = errorType,
@@ -90,26 +143,59 @@ class ErrorReporter @Inject constructor(
             screen = screen,
             sessionId = sessionIdProvider.get(),
             breadcrumbs = allBreadcrumbs,
+
+            // App/Device 정보
             appVersion = appInfoProvider.appVersion,
             buildType = appInfoProvider.buildType,
             deviceModel = deviceInfoProvider.deviceModel,
             osSdkInt = deviceInfoProvider.osSdkInt,
-            thread = if (isMainThread) "main" else threadName,
+            locale = appInfoProvider.locale,
+            installId = installIdProvider.installId,
+
+            // Context 정보
+            thread = threadName,
+            isMainThread = isMainThread,
             feature = feature,
             flow = flow,
-            fingerprintHint = calculateFingerprintHint(errorType, stack, message)
+
+            // Network 정보
+            networkType = networkStateProvider.networkType,
+            isAirplaneMode = networkStateProvider.isAirplaneModeOn,
+
+            // LLM Hint 필드
+            exceptionClass = throwable.javaClass.name,
+            topFrameHint = topFrame,
+            messageNormalizedHint = normalizedMessage,
+            breadcrumbsSummaryHint = generateBreadcrumbsSummary(allBreadcrumbs),
+            fingerprintHint = "$errorType|$topFrame|$normalizedMessage"
         )
 
         println("[ErrorReporter] Sending error event: type=${event.type}, feature=${event.feature}, breadcrumbs=${event.breadcrumbs.size}")
 
         scope.launch {
+            sendWithRetry(event)
+        }
+    }
+
+    /**
+     * 이벤트 전송, 실패 시 Room에 저장
+     */
+    private suspend fun sendWithRetry(event: ErrorEvent) {
+        val result = sendErrorEventUseCase(event)
+
+        result.onSuccess {
+            println("[ErrorReporter] Error event sent successfully")
+        }.onFailure { e ->
+            val networkState = networkStateProvider.getNetworkStateDescription()
+            println("[ErrorReporter] Failed to send error event: ${e.message}")
+            println("[ErrorReporter] Network state: $networkState")
+            // Room에 저장 (PendingErrorEventStorageImpl에서 최대 10개 제한 관리)
             runCatching {
-                sendErrorEventUseCase(event)
-            }.onSuccess {
-                println("[ErrorReporter] Error event sent successfully")
-            }.onFailure { e ->
-                println("[ErrorReporter] Failed to send error event: ${e.message}")
-                e.printStackTrace()
+                pendingEventStorage.save(event)
+                val count = pendingEventStorage.count()
+                println("[ErrorReporter] Event saved to storage for retry. Storage count: $count")
+            }.onFailure { saveError ->
+                println("[ErrorReporter] Failed to save event to storage: ${saveError.message}")
             }
         }
     }
@@ -208,16 +294,6 @@ class ErrorReporter @Inject constructor(
     }
 
     /**
-     * fingerprintHint 계산
-     * 규칙: "{type}|{topStackFrame}|{normalizedMessage(80)}"
-     */
-    private fun calculateFingerprintHint(type: String, stack: String, message: String): String {
-        val topFrame = extractTopStackFrame(stack)
-        val normalizedMessage = normalizeMessage(message)
-        return "$type|$topFrame|$normalizedMessage"
-    }
-
-    /**
      * 스택에서 첫 번째 meaningful frame 추출
      * com.woon 패키지 프레임 우선, 없으면 첫 프레임
      */
@@ -245,16 +321,47 @@ class ErrorReporter @Inject constructor(
     }
 
     /**
-     * 메시지 정규화: 80자로 자르고 숫자 연속을 #으로 치환
+     * 메시지 정규화: 80자로 자르고 숫자/UUID를 #으로 치환
      */
     private fun normalizeMessage(message: String): String {
         return message
             .take(MAX_MESSAGE_LENGTH)
+            .replace(Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", RegexOption.IGNORE_CASE), "#UUID#")
             .replace(Regex("\\d+"), "#")
+    }
+
+    /**
+     * Breadcrumbs를 사람이 읽기 쉬운 한 줄 요약으로 변환
+     * 예: "HomeScreen -> CoinItem(BTC) -> DetailScreen -> TimeFrameChange(1m->1M)"
+     */
+    private fun generateBreadcrumbsSummary(breadcrumbs: List<Breadcrumb>): String {
+        if (breadcrumbs.isEmpty()) return ""
+
+        // 최근 5개의 중요한 이벤트만 요약
+        val recentSignificant = breadcrumbs
+            .filter { it.type != BreadcrumbType.HTTP }  // HTTP는 제외
+            .takeLast(5)
+
+        if (recentSignificant.isEmpty()) return ""
+
+        return recentSignificant.joinToString(" -> ") { bc ->
+            when (bc.type) {
+                BreadcrumbType.SCREEN -> bc.name
+                BreadcrumbType.NAV -> "Nav(${bc.name.substringAfterLast("/")})"
+                BreadcrumbType.CLICK -> {
+                    val param = bc.attrs.values.firstOrNull()?.take(10) ?: ""
+                    if (param.isNotEmpty()) "${bc.name}($param)" else bc.name
+                }
+                else -> bc.name
+            }
+        }.take(MAX_SUMMARY_LENGTH)
     }
 
     companion object {
         private const val APP_PACKAGE_PREFIX = "com.woon"
         private const val MAX_MESSAGE_LENGTH = 80
+        private const val MAX_SUMMARY_LENGTH = 200
+        private const val MAX_RETRY_BATCH = 3
+        private const val RETRY_INTERVAL_MS = 30_000L  // 30초마다 재시도
     }
 }

@@ -59,5 +59,10 @@ gradlePlugin {
             id = "chart.network"
             implementationClass = "com.woon.plugin.NetworkPlugin"
         }
+
+        register("Datastore") {
+            id = "chart.datastore"
+            implementationClass = "com.woon.plugin.DatastorePlugin"
+        }
     }
 }
