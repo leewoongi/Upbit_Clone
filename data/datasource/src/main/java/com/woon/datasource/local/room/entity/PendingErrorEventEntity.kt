@@ -18,6 +18,7 @@ data class PendingErrorEventEntity(
     // App/Device 정보
     val appVersion: String,
     val buildType: String,
+    val buildFingerprint: String = "",
     val deviceModel: String,
     val osSdkInt: Int,
     val locale: String = "",
@@ -29,9 +30,13 @@ data class PendingErrorEventEntity(
     val feature: String,
     val flow: String,
 
+    // 에러 직전 상태 (JSON)
+    val errorContextJson: String = "{}",
+
     // Network 정보
     val networkType: String = "",
     val isAirplaneMode: Boolean = false,
+    val networkContextJson: String = "{}",
 
     // LLM Hint 필드
     val exceptionClass: String = "",

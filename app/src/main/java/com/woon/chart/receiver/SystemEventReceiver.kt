@@ -12,12 +12,14 @@ import android.net.wifi.WifiManager
 import android.os.Build
 import android.provider.Settings
 import com.woon.domain.breadcrumb.recorder.BreadcrumbRecorder
+import com.woon.domain.event.reporter.ErrorReporter
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class SystemEventReceiver @Inject constructor(
-    private val breadcrumbRecorder: BreadcrumbRecorder
+    private val breadcrumbRecorder: BreadcrumbRecorder,
+    private val errorReporter: dagger.Lazy<ErrorReporter>
 ) {
     private var airplaneModeReceiver: BroadcastReceiver? = null
     private var wifiStateReceiver: BroadcastReceiver? = null

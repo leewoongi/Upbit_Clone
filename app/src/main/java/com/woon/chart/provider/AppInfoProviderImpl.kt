@@ -16,5 +16,8 @@ class AppInfoProviderImpl @Inject constructor() : AppInfoProvider {
         get() = BuildConfig.BUILD_TYPE
 
     override val locale: String
-        get() = Locale.getDefault().toString()  // e.g., "ko_KR"
+        get() = Locale.getDefault().toString()
+
+    override val buildFingerprint: String
+        get() = "${BuildConfig.VERSION_NAME}-${BuildConfig.BUILD_TYPE}-${BuildConfig.VERSION_CODE}"
 }

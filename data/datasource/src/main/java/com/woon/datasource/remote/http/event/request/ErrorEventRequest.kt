@@ -14,6 +14,7 @@ data class ErrorEventRequest(
     // App/Device 정보
     @SerializedName("appVersion") val appVersion: String,
     @SerializedName("buildType") val buildType: String,
+    @SerializedName("buildFingerprint") val buildFingerprint: String,
     @SerializedName("deviceModel") val deviceModel: String,
     @SerializedName("osSdkInt") val osSdkInt: Int,
     @SerializedName("locale") val locale: String,
@@ -25,11 +26,15 @@ data class ErrorEventRequest(
     @SerializedName("feature") val feature: String,
     @SerializedName("flow") val flow: String,
 
+    // 에러 직전 상태 (서버 정확도 상승용)
+    @SerializedName("errorContext") val errorContext: Map<String, String>,
+
     // Network 정보
     @SerializedName("networkType") val networkType: String,
     @SerializedName("isAirplaneMode") val isAirplaneMode: Boolean,
+    @SerializedName("networkContext") val networkContext: Map<String, String>,
 
-    // LLM Hint 필드
+    // Hint 필드 (서버가 최종 결정)
     @SerializedName("exceptionClass") val exceptionClass: String,
     @SerializedName("topFrameHint") val topFrameHint: String,
     @SerializedName("messageNormalizedHint") val messageNormalizedHint: String,

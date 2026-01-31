@@ -22,6 +22,7 @@ fun ErrorEvent.toEntity(): PendingErrorEventEntity {
         // App/Device 정보
         appVersion = appVersion,
         buildType = buildType,
+        buildFingerprint = buildFingerprint,
         deviceModel = deviceModel,
         osSdkInt = osSdkInt,
         locale = locale,
@@ -33,9 +34,13 @@ fun ErrorEvent.toEntity(): PendingErrorEventEntity {
         feature = feature,
         flow = flow,
 
+        // 에러 직전 상태
+        errorContextJson = gson.toJson(errorContext),
+
         // Network 정보
         networkType = networkType,
         isAirplaneMode = isAirplaneMode,
+        networkContextJson = gson.toJson(networkContext),
 
         // LLM Hint 필드
         exceptionClass = exceptionClass,
@@ -50,6 +55,14 @@ fun PendingErrorEventEntity.toDomain(): ErrorEvent {
     val breadcrumbType = object : TypeToken<List<BreadcrumbJsonModel>>() {}.type
     val breadcrumbJsonList: List<BreadcrumbJsonModel> = gson.fromJson(breadcrumbsJson, breadcrumbType)
 
+    val mapType = object : TypeToken<Map<String, String>>() {}.type
+    val errorContext: Map<String, String> = runCatching {
+        gson.fromJson<Map<String, String>>(errorContextJson, mapType)
+    }.getOrDefault(emptyMap())
+    val networkContext: Map<String, String> = runCatching {
+        gson.fromJson<Map<String, String>>(networkContextJson, mapType)
+    }.getOrDefault(emptyMap())
+
     return ErrorEvent(
         id = id,
         timestamp = timestamp,
@@ -63,6 +76,7 @@ fun PendingErrorEventEntity.toDomain(): ErrorEvent {
         // App/Device 정보
         appVersion = appVersion,
         buildType = buildType,
+        buildFingerprint = buildFingerprint,
         deviceModel = deviceModel,
         osSdkInt = osSdkInt,
         locale = locale,
@@ -74,9 +88,13 @@ fun PendingErrorEventEntity.toDomain(): ErrorEvent {
         feature = feature,
         flow = flow,
 
+        // 에러 직전 상태
+        errorContext = errorContext,
+
         // Network 정보
         networkType = networkType,
         isAirplaneMode = isAirplaneMode,
+        networkContext = networkContext,
 
         // LLM Hint 필드
         exceptionClass = exceptionClass,

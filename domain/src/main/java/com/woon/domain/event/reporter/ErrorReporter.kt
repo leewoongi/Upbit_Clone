@@ -68,6 +68,16 @@ class ErrorReporter @Inject constructor(
     }
 
     /**
+     * 네트워크 복구 시 외부에서 호출하여 즉시 재전송
+     */
+    fun retrySavedEvents() {
+        scope.launch {
+            println("[ErrorReporter] retrySavedEvents() called - network restored")
+            flushPendingQueue()
+        }
+    }
+
+    /**
      * 대기 큐의 이벤트들을 전송 시도 (Room에서 로드)
      */
     private suspend fun flushPendingQueue() {

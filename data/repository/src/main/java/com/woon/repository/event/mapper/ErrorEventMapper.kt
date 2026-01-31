@@ -19,6 +19,7 @@ fun ErrorEvent.toRequest(): ErrorEventRequest {
         // App/Device 정보
         appVersion = appVersion,
         buildType = buildType,
+        buildFingerprint = buildFingerprint,
         deviceModel = deviceModel,
         osSdkInt = osSdkInt,
         locale = locale,
@@ -30,11 +31,15 @@ fun ErrorEvent.toRequest(): ErrorEventRequest {
         feature = feature,
         flow = flow,
 
+        // 에러 직전 상태
+        errorContext = errorContext,
+
         // Network 정보
         networkType = networkType,
         isAirplaneMode = isAirplaneMode,
+        networkContext = networkContext,
 
-        // LLM Hint 필드
+        // Hint 필드 (서버가 최종 결정)
         exceptionClass = exceptionClass,
         topFrameHint = topFrameHint,
         messageNormalizedHint = messageNormalizedHint,
