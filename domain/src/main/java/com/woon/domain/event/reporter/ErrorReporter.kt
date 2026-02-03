@@ -45,6 +45,9 @@ class ErrorReporter @Inject constructor(
     // 이전 세션 스냅샷 (첫 에러에만 사용)
     private var previousSessionBreadcrumbs: List<Breadcrumb>? = null
 
+    // Fallback 이벤트 중복 방지용 (세션당 한 번만 로깅)
+    private val reportedFallbacks = mutableSetOf<String>()
+
     init {
         previousSessionBreadcrumbs = breadcrumbRecorder.consumePreviousSnapshot()
         // 앱 시작 시 저장된 대기 이벤트 전송 시도
@@ -103,6 +106,44 @@ class ErrorReporter @Inject constructor(
     }
 
     /**
+     * Fallback 이벤트 로깅 (non-fatal, 세션당 한 번만 기록)
+     *
+     * @param errorType 에러 유형 (예: "EMPTY_CANDLES", "NULL_CAST", "NO_SUCH_ELEMENT")
+     * @param feature 기능 (예: "Grid", "TimeScale", "TradingChart")
+     * @param screen 화면 (예: "DetailScreen", "HomeScreen")
+     * @param topFrameHint 발생 위치 힌트 (예: "Grid.drawGrid")
+     * @param extra 추가 정보 (예: mapOf("dataSize" to "0", "key" to "visibleCandles"))
+     */
+    fun reportFallback(
+        errorType: String,
+        feature: String,
+        screen: String,
+        topFrameHint: String,
+        extra: Map<String, String> = emptyMap()
+    ) {
+        val fallbackKey = "$errorType|$feature|$screen|$topFrameHint"
+
+        // 세션당 동일 fallback은 한 번만 기록
+        if (fallbackKey in reportedFallbacks) {
+            return
+        }
+        reportedFallbacks.add(fallbackKey)
+
+        println("[ErrorReporter] Fallback recorded: $fallbackKey, extra=$extra")
+
+        breadcrumbRecorder.recordSystem(
+            name = "Fallback",
+            attrs = mapOf(
+                "errorType" to errorType,
+                "feature" to feature,
+                "screen" to screen,
+                "topFrameHint" to topFrameHint,
+                "isFallback" to "true"
+            ) + extra
+        )
+    }
+
+    /**
      * 에러 리포트 (기존 호환)
      */
     fun report(throwable: Throwable, screen: String) {
@@ -132,8 +173,9 @@ class ErrorReporter @Inject constructor(
         println("[ErrorReporter] Breadcrumbs count: ${currentBreadcrumbs.size}")
 
         // 이전 세션 breadcrumb이 있으면 앞에 붙임 (첫 에러에만)
-        val allBreadcrumbs = if (previousSessionBreadcrumbs != null) {
-            val combined = previousSessionBreadcrumbs!! + currentBreadcrumbs
+        val previousBreadcrumbs = previousSessionBreadcrumbs
+        val allBreadcrumbs = if (previousBreadcrumbs != null) {
+            val combined = previousBreadcrumbs + currentBreadcrumbs
             previousSessionBreadcrumbs = null  // 1회만 사용
             combined.takeLast(30)
         } else {

@@ -33,6 +33,8 @@ fun TimeScale(
             .fillMaxSize()
             .background(backgroundColor)
     ) {
+        val firstCandle = state.visibleCandles.firstOrNull() ?: return@Canvas
+        val lastCandle = state.visibleCandles.lastOrNull() ?: return@Canvas
         if (state.visibleCandles.size < 2) return@Canvas
 
         val textStyle = TextStyle(
@@ -41,8 +43,8 @@ fun TimeScale(
         )
 
         // 1. 필요한 정보
-        val startTime = state.visibleCandles.first().timestamp
-        val endTime = state.visibleCandles.last().timestamp
+        val startTime = firstCandle.timestamp
+        val endTime = lastCandle.timestamp
 
         // 2. 간격 결정
         val interval = state.gridIntervalMs

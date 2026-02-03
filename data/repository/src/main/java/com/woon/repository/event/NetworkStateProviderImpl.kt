@@ -14,8 +14,8 @@ class NetworkStateProviderImpl @Inject constructor(
     @ApplicationContext private val context: Context
 ) : NetworkStateProvider {
 
-    private val connectivityManager: ConnectivityManager
-        get() = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    private val connectivityManager: ConnectivityManager?
+        get() = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
 
     override val isAirplaneModeOn: Boolean
         get() = Settings.Global.getInt(
@@ -26,22 +26,25 @@ class NetworkStateProviderImpl @Inject constructor(
 
     override val isWifiConnected: Boolean
         get() = runCatching {
-            val network = connectivityManager.activeNetwork ?: return@runCatching false
-            val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return@runCatching false
+            val cm = connectivityManager ?: return@runCatching false
+            val network = cm.activeNetwork ?: return@runCatching false
+            val capabilities = cm.getNetworkCapabilities(network) ?: return@runCatching false
             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
         }.getOrDefault(false)
 
     override val isMobileDataConnected: Boolean
         get() = runCatching {
-            val network = connectivityManager.activeNetwork ?: return@runCatching false
-            val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return@runCatching false
+            val cm = connectivityManager ?: return@runCatching false
+            val network = cm.activeNetwork ?: return@runCatching false
+            val capabilities = cm.getNetworkCapabilities(network) ?: return@runCatching false
             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
         }.getOrDefault(false)
 
     override val isNetworkAvailable: Boolean
         get() = runCatching {
-            val network = connectivityManager.activeNetwork ?: return@runCatching false
-            val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return@runCatching false
+            val cm = connectivityManager ?: return@runCatching false
+            val network = cm.activeNetwork ?: return@runCatching false
+            val capabilities = cm.getNetworkCapabilities(network) ?: return@runCatching false
             capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
         }.getOrDefault(false)
 

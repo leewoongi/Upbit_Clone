@@ -29,9 +29,11 @@ fun DrawScope.drawGrid(
     }
 
     // 세로선
-    if (state.visibleCandles.size >= 2) {
-        val startTime = state.visibleCandles.first().timestamp
-        val endTime = state.visibleCandles.last().timestamp
+    val firstCandle = state.visibleCandles.firstOrNull()
+    val lastCandle = state.visibleCandles.lastOrNull()
+    if (firstCandle != null && lastCandle != null && state.visibleCandles.size >= 2) {
+        val startTime = firstCandle.timestamp
+        val endTime = lastCandle.timestamp
         val gridInterval = state.gridIntervalMs
 
         var time = ((startTime / gridInterval) + 1) * gridInterval

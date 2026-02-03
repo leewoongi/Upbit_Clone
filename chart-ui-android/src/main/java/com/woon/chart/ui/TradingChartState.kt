@@ -211,8 +211,10 @@ class TradingChartState(
     // ========================================
 
     val visibleTimeRangeMs: Long by derivedStateOf {
+        val first = visibleCandles.firstOrNull() ?: return@derivedStateOf 0L
+        val last = visibleCandles.lastOrNull() ?: return@derivedStateOf 0L
         if (visibleCandles.size < 2) return@derivedStateOf 0L
-        visibleCandles.last().timestamp - visibleCandles.first().timestamp
+        last.timestamp - first.timestamp
     }
 
     val gridIntervalMs: Long by derivedStateOf {
@@ -245,7 +247,8 @@ class TradingChartState(
             }
         }
 
-        return if (timestamp < _candles.first().timestamp) {
+        val firstCandle = _candles.firstOrNull() ?: return 0f
+        return if (timestamp < firstCandle.timestamp) {
             indexToScreenX(0)
         } else {
             indexToScreenX(_candles.size - 1)

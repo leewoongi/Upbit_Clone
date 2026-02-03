@@ -38,9 +38,9 @@ class SystemEventReceiver @Inject constructor(
         wifiStateReceiver?.let {
             runCatching { context.unregisterReceiver(it) }
         }
-        networkCallback?.let {
-            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-            runCatching { cm.unregisterNetworkCallback(it) }
+        networkCallback?.let { callback ->
+            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            cm?.let { runCatching { it.unregisterNetworkCallback(callback) } }
         }
     }
 
@@ -91,7 +91,8 @@ class SystemEventReceiver @Inject constructor(
     }
 
     private fun registerNetworkCallback(context: Context) {
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            ?: return  // ConnectivityManager 없으면 등록 스킵
 
         networkCallback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
@@ -106,6 +107,9 @@ class SystemEventReceiver @Inject constructor(
                     name = "NetworkConnected",
                     attrs = mapOf("type" to type)
                 )
+
+                // 네트워크 복구 시 pending 이벤트 재전송
+                errorReporter.get().retrySavedEvents()
             }
 
             override fun onLost(network: Network) {
@@ -120,6 +124,6 @@ class SystemEventReceiver @Inject constructor(
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
 
-        cm.registerNetworkCallback(request, networkCallback!!)
+        networkCallback?.let { cm.registerNetworkCallback(request, it) }
     }
 }

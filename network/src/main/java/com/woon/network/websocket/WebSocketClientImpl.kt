@@ -26,6 +26,7 @@ class WebSocketClientImpl @Inject constructor(
 
         val listener = object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
+                println("[WebSocket] onOpen - connected to ${request.url}")
                 // 구독 메시지 전송
                 webSocket.send(request.toSubscribeMessage())
             }
@@ -49,17 +50,20 @@ class WebSocketClientImpl @Inject constructor(
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                println("[WebSocket] onFailure - ${t.message}")
                 // 에러 이벤트 전달 후 flow 종료
                 trySend(WebSocketResponse.Failure(t))
                 close(t)
             }
         }
 
+        println("[WebSocket] Creating new connection to ${request.url}")
         // ✅ collect 시작 시점에 소켓 연결
         val webSocket = okHttpClient.newWebSocket(httpRequest, listener)
 
         // ✅ collect 취소/종료 시점에 소켓 종료
         awaitClose {
+            println("[WebSocket] awaitClose - closing connection")
             // 이미 닫힌 경우도 안전
             webSocket.close(1000, "Collector cancelled")
         }

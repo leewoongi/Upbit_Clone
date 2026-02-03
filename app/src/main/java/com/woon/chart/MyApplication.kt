@@ -36,6 +36,28 @@ class MyApplication : Application() {
                     attrs = mapOf("duration" to "${durationMs}ms")
                 )
             }
+
+            override fun onHttpError(
+                method: String,
+                path: String,
+                exceptionType: String,
+                message: String,
+                durationMs: Long,
+                retryCount: Int
+            ) {
+                // HTTP 에러를 breadcrumb으로 기록
+                breadcrumbRecorder.recordHttp(
+                    method = method,
+                    path = path,
+                    statusCode = -1,  // 에러를 나타내는 특수값
+                    attrs = mapOf(
+                        "error" to exceptionType,
+                        "message" to message.take(50),
+                        "duration" to "${durationMs}ms",
+                        "retry" to retryCount.toString()
+                    )
+                )
+            }
         })
     }
 

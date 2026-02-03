@@ -13,7 +13,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -115,8 +114,8 @@ fun HomeScreen() {
             is HomeDataState.Loading -> {
                 Box(
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
+                        .fillMaxSize()
+                        .weight(1f),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(color = colorPrimary)
@@ -125,7 +124,9 @@ fun HomeScreen() {
 
             is HomeDataState.Success -> {
                 CoinList(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f),
                     coins = dataState.coins,
                     onCoinClick = { coin ->
                         viewModel.recordClick("CoinItem", mapOf("symbol" to coin.symbol))
@@ -138,13 +139,27 @@ fun HomeScreen() {
             is HomeDataState.Error -> {
                 Box(
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
+                        .fillMaxSize()
+                        .weight(1f),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = dataState.message,
                         color = colorError
+                    )
+                }
+            }
+
+            is HomeDataState.Empty -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "데이터가 없습니다",
+                        color = colorPrimary
                     )
                 }
             }
