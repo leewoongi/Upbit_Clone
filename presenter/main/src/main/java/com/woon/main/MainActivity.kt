@@ -15,6 +15,7 @@ import androidx.core.view.WindowCompat
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.navigation.compose.rememberNavController
 import com.woon.core.ui.design.theme.ChartAppTheme
+import com.woon.core.ui.provides.LocalClickTracker
 import com.woon.core.ui.provides.LocalNavController
 import com.woon.core.ui.design.theme.theme.ChartTheme
 import com.woon.domain.breadcrumb.recorder.BreadcrumbRecorder
@@ -58,7 +59,12 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    CompositionLocalProvider(LocalNavController provides navController) {
+                    CompositionLocalProvider(
+                        LocalNavController provides navController,
+                        LocalClickTracker provides { name, attrs ->
+                            breadcrumbRecorder.recordClick(name, attrs)
+                        }
+                    ) {
                         NavigationGraph(
                             navController = navController,
                             modifier = Modifier.padding(innerPadding)

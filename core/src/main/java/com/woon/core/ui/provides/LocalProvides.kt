@@ -8,3 +8,9 @@ import androidx.navigation.NavController
 val LocalNavController = staticCompositionLocalOf<NavController> {
     error("NavController not provided")
 }
+
+typealias ClickTracker = (name: String, attrs: Map<String, String>) -> Unit
+
+val LocalClickTracker = staticCompositionLocalOf<ClickTracker> {
+    { _, _ -> } // 기본값: no-op
+}
