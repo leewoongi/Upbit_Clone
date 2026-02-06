@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import com.woon.presenter.home.BuildConfig
 import javax.inject.Inject
 
 @HiltViewModel
@@ -88,6 +89,8 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun triggerTestError() {
+        if (!BuildConfig.DEBUG) return
+
         breadcrumbRecorder.recordClick("TestErrorButton")
         val testException = IllegalStateException("Test error for breadcrumb verification")
         errorReporter.report(testException, SCREEN_NAME, feature = FEATURE_TEST_ERROR)
